@@ -1,0 +1,63 @@
+/**
+ * Centralized error codes (TDD Mục 11 — "Mã lỗi (code) được định nghĩa tập
+ * trung ở shared/exceptions/error-codes.ts, map 1-1 sang HTTP status qua
+ * Global Exception Filter"). Add new codes here as new modules land;
+ * never hardcode a string literal error code elsewhere.
+ */
+export enum ErrorCode {
+  // Generic
+  INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
+  FORBIDDEN = 'FORBIDDEN',
+
+  // Identity Module
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  ACCOUNT_INACTIVE = 'ACCOUNT_INACTIVE',
+  EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS',
+  INVALID_REFRESH_TOKEN = 'INVALID_REFRESH_TOKEN',
+  REFRESH_TOKEN_REVOKED = 'REFRESH_TOKEN_REVOKED',
+  REFRESH_TOKEN_EXPIRED = 'REFRESH_TOKEN_EXPIRED',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+
+  // Customer Module
+  CUSTOMER_NOT_FOUND = 'CUSTOMER_NOT_FOUND',
+
+  // Ticket Module
+  TICKET_INVALID_TRANSITION = 'TICKET_INVALID_TRANSITION',
+  TICKET_NOT_FOUND = 'TICKET_NOT_FOUND',
+
+  // Conversation Module
+  CONVERSATION_NOT_FOUND = 'CONVERSATION_NOT_FOUND',
+
+  // Knowledge Base Module
+  DOCUMENT_NOT_FOUND = 'DOCUMENT_NOT_FOUND',
+  DOCUMENT_INVALID_FORMAT = 'DOCUMENT_INVALID_FORMAT',
+  DOCUMENT_TOO_LARGE = 'DOCUMENT_TOO_LARGE',
+}
+
+export const ERROR_CODE_HTTP_STATUS: Record<ErrorCode, number> = {
+  [ErrorCode.INTERNAL_SERVER_ERROR]: 500,
+  [ErrorCode.VALIDATION_ERROR]: 422,
+  [ErrorCode.RESOURCE_NOT_FOUND]: 404,
+  [ErrorCode.FORBIDDEN]: 403,
+
+  [ErrorCode.INVALID_CREDENTIALS]: 401,
+  [ErrorCode.ACCOUNT_INACTIVE]: 403,
+  [ErrorCode.EMAIL_ALREADY_EXISTS]: 409,
+  [ErrorCode.INVALID_REFRESH_TOKEN]: 401,
+  [ErrorCode.REFRESH_TOKEN_REVOKED]: 401,
+  [ErrorCode.REFRESH_TOKEN_EXPIRED]: 401,
+  [ErrorCode.UNAUTHORIZED]: 401,
+
+  [ErrorCode.TICKET_INVALID_TRANSITION]: 409,
+  [ErrorCode.TICKET_NOT_FOUND]: 404,
+
+  [ErrorCode.CUSTOMER_NOT_FOUND]: 404,
+
+  [ErrorCode.CONVERSATION_NOT_FOUND]: 404,
+
+  [ErrorCode.DOCUMENT_NOT_FOUND]: 404,
+  [ErrorCode.DOCUMENT_INVALID_FORMAT]: 422,
+  [ErrorCode.DOCUMENT_TOO_LARGE]: 422,
+};
