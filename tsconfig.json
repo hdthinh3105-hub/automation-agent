@@ -36,7 +36,9 @@
       "@app/modules/conversation": ["libs/modules/conversation/index.ts"],
       "@app/modules/conversation/*": ["libs/modules/conversation/*"],
       "@app/modules/knowledge-base": ["libs/modules/knowledge-base/index.ts"],
-      "@app/modules/knowledge-base/*": ["libs/modules/knowledge-base/*"]
+      "@app/modules/knowledge-base/*": ["libs/modules/knowledge-base/*"],
+      "@app/modules/rag": ["libs/modules/rag/index.ts"],
+      "@app/modules/rag/*": ["libs/modules/rag/*"]
     }
   }
 }

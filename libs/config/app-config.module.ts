@@ -1,6 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { appConfig, databaseConfig, jwtConfig, redisConfig, throttleConfig, storageConfig } from './configuration';
+import {
+  appConfig,
+  databaseConfig,
+  jwtConfig,
+  redisConfig,
+  throttleConfig,
+  storageConfig,
+  llmConfig,
+  embeddingConfig,
+  ragConfig,
+  queueConfig,
+} from './configuration';
 import { validateEnv } from './env.validation';
 
 @Module({
@@ -9,7 +20,18 @@ import { validateEnv } from './env.validation';
       isGlobal: true,
       envFilePath: ['.env'],
       validate: validateEnv,
-      load: [appConfig, databaseConfig, redisConfig, jwtConfig, throttleConfig, storageConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        redisConfig,
+        jwtConfig,
+        throttleConfig,
+        storageConfig,
+        llmConfig,
+        embeddingConfig,
+        ragConfig,
+        queueConfig,
+      ],
     }),
   ],
 })

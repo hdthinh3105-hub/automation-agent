@@ -4,19 +4,21 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from '@app/config';
-import { PrismaModule } from '@app/infrastructure';
+import { PrismaModule, QueueModule } from '@app/infrastructure';
 import { GlobalExceptionFilter, ResponseInterceptor } from '@app/shared';
 import { IdentityModule, JwtAuthGuard, RolesGuard } from '@app/modules/identity';
 import { CustomerModule } from '@app/modules/customer';
 import { TicketModule } from '@app/modules/ticket';
 import { ConversationModule } from '@app/modules/conversation';
 import { KnowledgeBaseModule } from '@app/modules/knowledge-base';
+import { RagModule } from '@app/modules/rag';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
+    QueueModule,
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     LoggerModule.forRoot({
@@ -34,6 +36,7 @@ import { AppController } from './app.controller';
     TicketModule,
     ConversationModule,
     KnowledgeBaseModule,
+    RagModule,
   ],
   controllers: [AppController],
   providers: [

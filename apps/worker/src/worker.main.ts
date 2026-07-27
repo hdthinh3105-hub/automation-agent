@@ -3,16 +3,18 @@ import { NestFactory } from '@nestjs/core';
 import { WorkerModule } from './worker.module';
 
 /**
- * Worker process entrypoint — separate from the API process but shares
- * the same `libs/` codebase (TDD §2.4/§2.8). Currently a no-op bootstrap;
- * BullMQ Processors will be registered here starting Phase 3.
+ * Worker process entrypoint — separate từ API process nhưng dùng chung
+ * codebase `libs/` (TDD §2.4/§2.8). Từ Ngày 3 (RAG Pipeline Đợt 1),
+ * Worker này chạy thật 2 BullMQ Processor: Document Parser + Embedding
+ * (đăng ký trong `WorkerModule`) — không còn là bootstrap rỗng như
+ * Phase 1+2 nữa.
  */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(WorkerModule, {
     bufferLogs: true,
   });
   // eslint-disable-next-line no-console
-  console.log('🛠️  Worker process started (no queues registered yet — Phase 3+)');
+  console.log('🛠️  Worker process started — Document Parser + Embedding queues are being processed.');
 
   process.on('SIGTERM', async () => {
     await app.close();

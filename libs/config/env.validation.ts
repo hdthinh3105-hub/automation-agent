@@ -15,9 +15,11 @@ export const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
+  REDIS_URL: z.string().url().optional(),
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_PASSWORD: z.string().optional().default(''),
+  REDIS_TLS: z.coerce.boolean().default(false),
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
@@ -30,15 +32,31 @@ export const envSchema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  // Reserved for later phases — optional for now.
+  // ---- LLM / Embedding (Phase 5 — RAG Pipeline) ----
+  // GROQ_API_KEY/GEMINI_API_KEY vẫn optional ở mức boot: EMBEDDING_PROVIDER
+  // mặc định "local" (bge-small qua @xenova/transformers, không cần key)
+  // nên hệ thống chunk/embed chạy được ngay không cần key nào. Key chỉ
+  // thật sự bắt buộc khi LlmOrchestratorProvider được GỌI (Answer
+  // Generation, Phase 5 Đợt 2 / Phase 6) — lúc đó orchestrator tự throw
+  // lỗi rõ ràng nếu thiếu, đúng tinh thần "fail-fast nhưng không chặn
+  // boot của cả hệ thống chỉ vì 1 module con chưa cấu hình" (TDD §2.7).
   GROQ_API_KEY: z.string().optional(),
-  GROQ_MODEL: z.string().optional(),
+  GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().optional(),
-  EMBEDDING_PROVIDER: z.string().optional(),
-  EMBEDDING_MODEL: z.string().optional(),
-  AI_CONFIDENCE_ESCALATION_THRESHOLD: z.coerce.number().min(0).max(1).optional(),
-  SPAM_SCORE_THRESHOLD: z.coerce.number().min(0).max(1).optional(),
+  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  EMBEDDING_PROVIDER: z.enum(['local', 'gemini']).default('local'),
+  EMBEDDING_MODEL: z.string().default('Xenova/bge-small-en-v1.5'),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(384),
+
+  // ---- Chunking / Retrieval strategy (config-driven, TDD §2.7) ----
+  CHUNK_SIZE_TOKENS: z.coerce.number().int().positive().default(500),
+  CHUNK_OVERLAP_TOKENS: z.coerce.number().int().min(0).default(75),
+  RAG_TOP_K_RETRIEVAL: z.coerce.number().int().positive().default(15),
+  RAG_TOP_K_FINAL: z.coerce.number().int().positive().default(5),
+  RAG_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().default(16),
+
+  AI_CONFIDENCE_ESCALATION_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  SPAM_SCORE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),

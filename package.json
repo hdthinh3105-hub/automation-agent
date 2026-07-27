@@ -1,7 +1,7 @@
 {
   "name": "ai-customer-support",
   "version": "0.1.0",
-  "description": "Track D - AI Customer Support Automation System (Phase 1+2: Setup & Auth)",
+  "description": "Track D - AI Customer Support Automation System",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -25,6 +25,8 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@nestjs/bullmq": "^10.2.1",
     "@nestjs/common": "^10.4.6",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.6",
@@ -34,14 +36,20 @@
     "@nestjs/platform-express": "^10.4.6",
     "@nestjs/throttler": "^6.2.1",
     "@prisma/client": "^5.20.0",
+    "@xenova/transformers": "^2.17.2",
     "bcrypt": "^5.1.1",
+    "bullmq": "^5.12.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "groq-sdk": "^0.7.0",
     "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "mammoth": "^1.8.0",
     "multer": "^1.4.5-lts.1",
     "nestjs-pino": "^4.1.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "^1.1.1",
     "pino-http": "^10.3.0",
     "pino-pretty": "^11.2.2",
     "reflect-metadata": "^0.2.2",
@@ -59,6 +67,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^20.16.10",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pdf-parse": "^1.1.4",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
@@ -91,7 +100,12 @@
       "^@app/shared(|/.*)$": "<rootDir>/libs/shared/$1",
       "^@app/config(|/.*)$": "<rootDir>/libs/config/$1",
       "^@app/infrastructure(|/.*)$": "<rootDir>/libs/infrastructure/$1",
-      "^@app/modules/identity(|/.*)$": "<rootDir>/libs/modules/identity/$1"
+      "^@app/modules/identity(|/.*)$": "<rootDir>/libs/modules/identity/$1",
+      "^@app/modules/customer(|/.*)$": "<rootDir>/libs/modules/customer/$1",
+      "^@app/modules/ticket(|/.*)$": "<rootDir>/libs/modules/ticket/$1",
+      "^@app/modules/conversation(|/.*)$": "<rootDir>/libs/modules/conversation/$1",
+      "^@app/modules/knowledge-base(|/.*)$": "<rootDir>/libs/modules/knowledge-base/$1",
+      "^@app/modules/rag(|/.*)$": "<rootDir>/libs/modules/rag/$1"
     }
   }
 }

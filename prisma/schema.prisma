@@ -222,7 +222,46 @@ model KnowledgeDocument {
   createdAt  DateTime           @default(now()) @map("created_at")
   deletedAt  DateTime?          @map("deleted_at")
 
+  chunks KnowledgeChunk[]
+
   @@index([status])
   @@index([uploadedBy])
   @@map("knowledge_documents")
+}
+
+// ============================================================
+// Phase 5 — RAG Pipeline (TDD Mục 7 & 10.3). `ChunkEmbedding`
+// tách bảng riêng khỏi `KnowledgeChunk` (cho phép nhiều embedding/model
+// khác nhau trong tương lai mà không phá vỡ dữ liệu chunk gốc). Cột
+// `vector` dùng kiểu Postgres thật (pgvector) qua Unsupported() vì
+// Prisma Client chưa hỗ trợ thao tác trực tiếp — mọi đọc/ghi vector đi
+// qua raw SQL ở `PrismaChunkRepository` (Mục 5.6 — 🔌 IVectorStore).
+// ============================================================
+
+model KnowledgeChunk {
+  id         String   @id @default(uuid())
+  documentId String   @map("document_id")
+  content    String
+  chunkIndex Int      @map("chunk_index")
+  tokenCount Int      @map("token_count")
+  section    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document  KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  embedding ChunkEmbedding?
+
+  @@index([documentId])
+  @@map("knowledge_chunks")
+}
+
+model ChunkEmbedding {
+  chunkId        String                 @id @map("chunk_id")
+  vector         Unsupported("vector")?
+  embeddingModel String                 @map("embedding_model")
+  dimensions     Int
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  chunk KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@map("chunk_embeddings")
 }

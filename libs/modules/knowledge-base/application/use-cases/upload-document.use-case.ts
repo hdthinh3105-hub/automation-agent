@@ -12,6 +12,7 @@ import { KnowledgeDocument, DocumentSourceType } from '../../domain/entities/kno
 import {
   DocumentInvalidFormatException,
   DocumentTooLargeException,
+  DocumentFileRequiredException,
 } from '../../domain/exceptions/knowledge-document.exception';
 import { DocumentResponseDto } from '../dto/knowledge-document.dto';
 
@@ -43,6 +44,9 @@ export class UploadDocumentUseCase {
     tags: string[] | undefined,
     uploadedBy: string,
   ): Promise<DocumentResponseDto> {
+    if (!file || !file.buffer || file.size === 0) {
+      throw new DocumentFileRequiredException();
+    }
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       throw new DocumentInvalidFormatException(file.mimetype);
     }

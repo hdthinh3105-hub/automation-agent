@@ -42,6 +42,23 @@ export class DocumentUploadedEvent implements IDomainEvent {
 }
 
 /**
+ * Raised khi Document Parser/Embedding Worker gặp lỗi không thể phục hồi
+ * sau khi hết số lần retry (TDD Mục 7.2 bước [2], Mục 12) — Notification
+ * Module (Phase 8) lắng nghe để báo Admin.
+ */
+export class DocumentProcessingFailedEvent implements IDomainEvent {
+  public readonly eventName = 'knowledge_base.document_processing_failed';
+  public readonly occurredAt: Date;
+
+  constructor(
+    public readonly documentId: string,
+    public readonly reason: string,
+  ) {
+    this.occurredAt = new Date();
+  }
+}
+
+/**
  * 🔑 Aggregate Root — Knowledge Base Module (TDD Mục 5.5).
  */
 export class KnowledgeDocument extends AggregateRoot<string> {
@@ -121,5 +138,21 @@ export class KnowledgeDocument extends AggregateRoot<string> {
 
   public markDeleted(): void {
     this.props.deletedAt = new Date();
+  }
+
+  /** Document Parser Worker gọi khi bắt đầu extract + chunk (TDD Mục 7.2 [2]). */
+  public startProcessing(): void {
+    this.props.status = DocumentStatus.PROCESSING;
+  }
+
+  /** Embedding Worker gọi sau khi toàn bộ chunk đã có embedding (TDD Mục 7.2 [5]). */
+  public markReady(): void {
+    this.props.status = DocumentStatus.READY;
+  }
+
+  /** Document Parser/Embedding Worker gọi khi hết retry mà vẫn lỗi (TDD Mục 12). */
+  public markFailed(reason: string): void {
+    this.props.status = DocumentStatus.FAILED;
+    this.addDomainEvent(new DocumentProcessingFailedEvent(this.id, reason));
   }
 }
