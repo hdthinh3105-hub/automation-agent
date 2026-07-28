@@ -12,6 +12,9 @@ import { TicketModule } from '@app/modules/ticket';
 import { ConversationModule } from '@app/modules/conversation';
 import { KnowledgeBaseModule } from '@app/modules/knowledge-base';
 import { RagModule } from '@app/modules/rag';
+import { RoutingModule } from '@app/modules/routing';
+import { EscalationModule } from '@app/modules/escalation';
+import { AiModule } from '@app/modules/ai';
 import { AppController } from './app.controller';
 
 @Module({
@@ -37,6 +40,9 @@ import { AppController } from './app.controller';
     ConversationModule,
     KnowledgeBaseModule,
     RagModule,
+    RoutingModule,
+    EscalationModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

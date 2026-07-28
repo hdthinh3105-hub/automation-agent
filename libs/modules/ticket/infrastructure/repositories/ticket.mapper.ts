@@ -67,6 +67,7 @@ export class TicketMapper {
       confidenceScore: ticket.confidenceScore,
       assignedAgentId: ticket.assignedAgentId,
       isSpam: ticket.isSpam,
+      isDuplicateOf: ticket.isDuplicateOf,
       missingInfoFlags: ticket.missingInfoFlags,
       updatedAt: ticket.updatedAt,
       resolvedAt: ticket.resolvedAt,

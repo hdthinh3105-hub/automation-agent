@@ -60,6 +60,11 @@ export const ragConfig = registerAs('rag', () => ({
   topKFinal: parseInt(process.env.RAG_TOP_K_FINAL ?? '5', 10),
   embeddingBatchSize: parseInt(process.env.RAG_EMBEDDING_BATCH_SIZE ?? '16', 10),
   confidenceEscalationThreshold: parseFloat(process.env.AI_CONFIDENCE_ESCALATION_THRESHOLD ?? '0.6'),
+  // Ngày 4 — AI Module (SpamDetectionService) tái sử dụng namespace `rag`
+  // config có sẵn thay vì tạo thêm registerAs('ai', ...) riêng: env var
+  // SPAM_SCORE_THRESHOLD đã tồn tại từ Đợt 2 (env.validation.ts) nhưng
+  // chưa được map vào bất kỳ config namespace nào.
+  spamScoreThreshold: parseFloat(process.env.SPAM_SCORE_THRESHOLD ?? '0.8'),
 }));
 
 export const queueConfig = registerAs('queue', () => ({
@@ -69,4 +74,8 @@ export const queueConfig = registerAs('queue', () => ({
   redisPort: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   redisPassword: process.env.REDIS_PASSWORD || undefined,
   redisTls: (process.env.REDIS_TLS ?? 'false').toLowerCase() === 'true',
+}));
+
+export const telegramConfig = registerAs('telegram', () => ({
+  botToken: process.env.TELEGRAM_BOT_TOKEN || undefined,
 }));

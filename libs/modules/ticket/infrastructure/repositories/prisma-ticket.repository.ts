@@ -22,6 +22,7 @@ export class PrismaTicketRepository implements ITicketRepository {
         confidenceScore: data.confidenceScore,
         assignedAgentId: data.assignedAgentId,
         isSpam: data.isSpam,
+        isDuplicateOf: data.isDuplicateOf,
         missingInfoFlags: data.missingInfoFlags,
         updatedAt: data.updatedAt,
         resolvedAt: data.resolvedAt,
@@ -42,5 +43,30 @@ export class PrismaTicketRepository implements ITicketRepository {
   async saveStatusHistory(history: TicketStatusHistory): Promise<void> {
     const data = TicketMapper.historyToPersistence(history);
     await this.prisma.ticketStatusHistory.create({ data });
+  }
+
+  async findMessages(ticketId: string): Promise<TicketMessage[]> {
+    const records = await this.prisma.ticketMessage.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return records.map((record) => TicketMapper.messageToDomain(record));
+  }
+
+  async findRecentByCustomer(
+    customerId: string,
+    sinceDate: Date,
+    excludeTicketId: string,
+  ): Promise<Ticket[]> {
+    const records = await this.prisma.ticket.findMany({
+      where: {
+        customerId,
+        id: { not: excludeTicketId },
+        createdAt: { gte: sinceDate },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    return records.map((record) => TicketMapper.toDomain(record));
   }
 }

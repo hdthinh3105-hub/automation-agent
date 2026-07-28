@@ -11,6 +11,7 @@ import {
   embeddingConfig,
   ragConfig,
   queueConfig,
+  telegramConfig,
 } from './configuration';
 import { validateEnv } from './env.validation';
 
@@ -31,6 +32,7 @@ import { validateEnv } from './env.validation';
         embeddingConfig,
         ragConfig,
         queueConfig,
+        telegramConfig,
       ],
     }),
   ],

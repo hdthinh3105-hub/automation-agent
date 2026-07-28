@@ -18,15 +18,20 @@ export enum TicketStatus {
 /**
  * Ma trận transition hợp lệ (TDD Mục 9 — "dùng bảng ma trận transition
  * hợp lệ trong code, không rải if/else khắp nơi").
+ *
+ * Ngày 4: thêm ESCALATED vào MỌI trạng thái trừ CLOSED, đúng TDD Mục 9 —
+ * "bất kỳ (trừ CLOSED) -> ESCALATED: Agent thủ công (override)". Cho
+ * phép Agent escalate thủ công một ticket ở bất kỳ giai đoạn nào (kể cả
+ * NEW/WAITING_CUSTOMER) mà không phải đợi AI phân loại xong.
  */
 export const VALID_TICKET_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
-  [TicketStatus.NEW]: [TicketStatus.CLASSIFIED],
+  [TicketStatus.NEW]: [TicketStatus.CLASSIFIED, TicketStatus.ESCALATED],
   [TicketStatus.CLASSIFIED]: [
     TicketStatus.WAITING_CUSTOMER,
     TicketStatus.ANSWERED,
     TicketStatus.ESCALATED,
   ],
-  [TicketStatus.WAITING_CUSTOMER]: [TicketStatus.CLASSIFIED],
+  [TicketStatus.WAITING_CUSTOMER]: [TicketStatus.CLASSIFIED, TicketStatus.ESCALATED],
   [TicketStatus.ANSWERED]: [TicketStatus.RESOLVED, TicketStatus.ESCALATED],
   [TicketStatus.ESCALATED]: [TicketStatus.IN_PROGRESS],
   [TicketStatus.IN_PROGRESS]: [TicketStatus.RESOLVED, TicketStatus.ESCALATED],

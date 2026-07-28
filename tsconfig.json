@@ -38,7 +38,13 @@
       "@app/modules/knowledge-base": ["libs/modules/knowledge-base/index.ts"],
       "@app/modules/knowledge-base/*": ["libs/modules/knowledge-base/*"],
       "@app/modules/rag": ["libs/modules/rag/index.ts"],
-      "@app/modules/rag/*": ["libs/modules/rag/*"]
+      "@app/modules/rag/*": ["libs/modules/rag/*"],
+      "@app/modules/ai": ["libs/modules/ai/index.ts"],
+      "@app/modules/ai/*": ["libs/modules/ai/*"],
+      "@app/modules/routing": ["libs/modules/routing/index.ts"],
+      "@app/modules/routing/*": ["libs/modules/routing/*"],
+      "@app/modules/escalation": ["libs/modules/escalation/index.ts"],
+      "@app/modules/escalation/*": ["libs/modules/escalation/*"]
     }
   }
 }

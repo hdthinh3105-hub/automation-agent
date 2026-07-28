@@ -29,6 +29,11 @@ export interface TicketProps {
  * transition thực sự nằm ở TicketStateMachineService (Domain Service)
  * để tách "quy tắc chuyển trạng thái" khỏi "nơi lưu state" — entity chỉ
  * biết áp dụng transition đã được xác nhận hợp lệ.
+ *
+ * Ngày 4 (AI Module): bổ sung setter cho category/priority/confidence/
+ * missingInfoFlags/isDuplicateOf (do `ProcessIncomingMessageUseCase` gọi
+ * sau từng bước pipeline — TDD Mục 8) + `markSpamAndClose()` (bypass
+ * state machine chính theo đúng TDD Mục 9).
  */
 export class Ticket extends AggregateRoot<string> {
   private props: TicketProps;
@@ -109,6 +114,10 @@ export class Ticket extends AggregateRoot<string> {
     return this.props.isSpam;
   }
 
+  public get isDuplicateOf(): string | null {
+    return this.props.isDuplicateOf;
+  }
+
   public get missingInfoFlags(): string[] {
     return this.props.missingInfoFlags;
   }
@@ -152,5 +161,52 @@ export class Ticket extends AggregateRoot<string> {
   public assignAgent(agentId: string): void {
     this.props.assignedAgentId = agentId;
     this.props.updatedAt = new Date();
+  }
+
+  /**
+   * AI Module gọi sau bước Classification + Priority Detection (TDD Mục
+   * 8, bước 1 + 5) — gắn category/priority vào ticket, KHÔNG tự đổi
+   * status (transition NEW->CLASSIFIED do orchestrator gọi riêng qua
+   * `transitionTo()`).
+   */
+  public applyClassification(category: string, priority: PriorityLevel): void {
+    this.props.category = category;
+    this.props.priority = priority;
+    this.props.updatedAt = new Date();
+  }
+
+  /** AI Module gọi sau bước Missing Information Detection (TDD Mục 8, bước 4). */
+  public applyMissingInfoFlags(flags: string[]): void {
+    this.props.missingInfoFlags = flags;
+    this.props.updatedAt = new Date();
+  }
+
+  /** RAG/AI Module gọi sau bước Confidence Evaluation (TDD Mục 8, bước 8). */
+  public applyConfidenceScore(score: number): void {
+    this.props.confidenceScore = score;
+    this.props.updatedAt = new Date();
+  }
+
+  /** AI Module gọi sau bước Duplicate Detection khi phát hiện trùng lặp (TDD Mục 8, bước 3). */
+  public markDuplicateOf(originalTicketId: string): void {
+    this.props.isDuplicateOf = originalTicketId;
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * TDD Mục 9 — "bất kỳ -> (Ticket bị đánh dấu spam) — không đi qua
+   * state machine chính, đóng thẳng với trạng thái riêng
+   * status=CLOSED, closeReason=SPAM". Bypass `isValidTicketTransition`
+   * có chủ đích: đây là override nghiệp vụ tường minh của AI Module,
+   * không phải lỗi luồng.
+   */
+  public markSpamAndClose(changedBy: string): void {
+    this.props.isSpam = true;
+    const fromStatus = this.props.status;
+    this.props.status = TicketStatus.CLOSED;
+    this.props.updatedAt = new Date();
+    this.addDomainEvent(
+      new TicketStatusChangedEvent(this.id, fromStatus, TicketStatus.CLOSED, changedBy, 'SPAM_DETECTED'),
+    );
   }
 }

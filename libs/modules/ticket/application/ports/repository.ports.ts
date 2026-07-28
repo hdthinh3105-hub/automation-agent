@@ -13,6 +13,19 @@ export interface ITicketRepository {
   findById(id: string): Promise<Ticket | null>;
   saveMessage(message: TicketMessage): Promise<void>;
   saveStatusHistory(history: TicketStatusHistory): Promise<void>;
+  /**
+   * AI Module (Phase 6, TDD Mục 8) dùng để lấy toàn bộ tin nhắn của
+   * ticket, tìm tin nhắn mới nhất của khách hàng làm input cho pipeline
+   * Classification/Spam/Duplicate/MissingInfo/Priority.
+   */
+  findMessages(ticketId: string): Promise<TicketMessage[]>;
+  /**
+   * AI Module dùng cho Duplicate Detection (TDD Mục 8, bước 3) — "so
+   * sánh trong cửa sổ thời gian (vd 30 ngày) & cùng customer trước, mở
+   * rộng toàn hệ thống nếu cần" (Đợt Ngày 4 chỉ implement phạm vi cùng
+   * customer, chưa mở rộng toàn hệ thống — giới hạn đã biết).
+   */
+  findRecentByCustomer(customerId: string, sinceDate: Date, excludeTicketId: string): Promise<Ticket[]>;
 }
 
 export interface ListTicketsFilter {

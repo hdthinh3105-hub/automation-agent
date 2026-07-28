@@ -1,8 +1,6 @@
-// Prisma schema — Phase 1+2 scope (TDD "Ngày 1").
-// Only `users` and `refresh_tokens` are modeled here, matching the
-// Identity Module. Full schema (tickets, conversations, knowledge base,
-// rag, escalation, audit, etc. — see TDD Mục 10) will be added
-// incrementally in Phase 3+ once each module's architecture is approved.
+// Prisma schema — cập nhật tới Phase 6 (Ngày 4: AI Workflow / Routing /
+// Escalation). Các phần trước (Identity, Customer/Ticket/Conversation/KB,
+// RAG Phase 5) giữ nguyên, chỉ bổ sung PromptLog + Escalation + quan hệ.
 
 generator client {
   provider        = "prisma-client-js"
@@ -30,8 +28,9 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  refreshTokens   RefreshToken[]
-  assignedTickets Ticket[]
+  refreshTokens       RefreshToken[]
+  assignedTickets     Ticket[]
+  assignedEscalations Escalation[]
 
   @@map("users")
 }
@@ -53,8 +52,6 @@ model RefreshToken {
 
 // ============================================================
 // Phase 3+4 — Customer / Ticket / Conversation / Knowledge Base
-// (TDD Mục 10). RAG/embedding columns (chunk_embeddings, pgvector
-// vector column...) are deliberately NOT added yet — Phase 5.
 // ============================================================
 
 enum Channel {
@@ -144,6 +141,7 @@ model Ticket {
   messages      TicketMessage[]
   statusHistory TicketStatusHistory[]
   conversation  Conversation?
+  escalations   Escalation[]
 
   @@index([status])
   @@index([customerId])
@@ -230,12 +228,7 @@ model KnowledgeDocument {
 }
 
 // ============================================================
-// Phase 5 — RAG Pipeline (TDD Mục 7 & 10.3). `ChunkEmbedding`
-// tách bảng riêng khỏi `KnowledgeChunk` (cho phép nhiều embedding/model
-// khác nhau trong tương lai mà không phá vỡ dữ liệu chunk gốc). Cột
-// `vector` dùng kiểu Postgres thật (pgvector) qua Unsupported() vì
-// Prisma Client chưa hỗ trợ thao tác trực tiếp — mọi đọc/ghi vector đi
-// qua raw SQL ở `PrismaChunkRepository` (Mục 5.6 — 🔌 IVectorStore).
+// Phase 5 — RAG Pipeline
 // ============================================================
 
 model KnowledgeChunk {
@@ -264,4 +257,66 @@ model ChunkEmbedding {
   chunk KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
 
   @@map("chunk_embeddings")
+}
+
+// ============================================================
+// Phase 6 — AI Workflow / Routing / Escalation (Ngày 4, TDD Mục 5.7,
+// 5.9, 10.2). PromptLog KHÔNG khai báo @relation với Ticket (ticketId
+// là plain field, không ràng buộc FK) — chấp nhận đánh đổi để bảng log
+// không phụ thuộc vòng đời Ticket (TDD Mục 10.2: "ticket_id nullable —
+// có thể log cho conversation-level summarize").
+// ============================================================
+
+enum EscalationReason {
+  LOW_CONFIDENCE
+  EXPLICIT_REQUEST
+  POLICY_RULE
+  COMPLEX_CASE
+}
+
+enum EscalationStatus {
+  PENDING
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model Escalation {
+  id              String           @id @default(uuid())
+  ticketId        String           @map("ticket_id")
+  reason          EscalationReason
+  assignedAgentId String?          @map("assigned_agent_id")
+  slaDeadline     DateTime         @map("sla_deadline")
+  status          EscalationStatus @default(PENDING)
+  resolutionNote  String?          @map("resolution_note")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  acknowledgedAt  DateTime?        @map("acknowledged_at")
+  resolvedAt      DateTime?        @map("resolved_at")
+
+  ticket        Ticket @relation(fields: [ticketId], references: [id])
+  assignedAgent User?  @relation(fields: [assignedAgentId], references: [id])
+
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([slaDeadline])
+  @@index([ticketId])
+  @@map("escalations")
+}
+
+model PromptLog {
+  id                     String   @id @default(uuid())
+  ticketId               String?  @map("ticket_id")
+  useCase                String   @map("use_case")
+  provider               String
+  model                  String
+  promptTokens           Int?     @map("prompt_tokens")
+  completionTokens       Int?     @map("completion_tokens")
+  latencyMs              Int      @map("latency_ms")
+  requestPayloadRedacted String?  @map("request_payload_redacted")
+  responseRaw            String?  @map("response_raw")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([useCase])
+  @@index([createdAt])
+  @@map("prompt_logs")
 }
