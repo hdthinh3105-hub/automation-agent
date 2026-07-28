@@ -11,13 +11,13 @@ interface TelegramUpdate {
 }
 
 /**
- * Channel Adapter — Should have (TDD Mục 5.3, 14). Đơn giản hoá cho Đợt
- * Ngày 4: mỗi tin nhắn Telegram gửi tới tạo 1 ticket MỚI (không thread
- * hội thoại qua nhiều tin nhắn Telegram thành 1 ticket duy nhất). Đây là
- * giới hạn đã biết, ghi vào Nhật ký quyết định (TDD Mục 17): đủ để
- * chứng minh tính đa kênh sống động cho video demo, nhưng chưa map
- * `telegramChatId` -> ticket đang mở để tiếp tục hội thoại trên cùng 1
- * ticket (hướng cải tiến nếu có thêm thời gian).
+ * Channel Adapter — Should have (TDD Mục 5.3, 14).
+ *
+ * `sendMessage()` (khác với `sendReply()` của IChannelAdapter — port đó
+ * nhận `ticketId` không đủ để gửi Telegram vì cần `chatId`) gọi thẳng
+ * Telegram Bot API `sendMessage` để bot trả lời khách ngay trên chat.
+ * TelegramWebhookController gọi hàm này sau khi AI pipeline xử lý xong,
+ * dùng `chatId` đã có sẵn từ `channelMetadata` của command gốc.
  */
 @Injectable()
 export class TelegramChannelAdapter implements IChannelAdapter {
@@ -36,9 +36,6 @@ export class TelegramChannelAdapter implements IChannelAdapter {
     const chatId = message.chat.id;
     const fromName =
       message.from?.username ?? message.from?.first_name ?? `telegram_user_${message.from?.id ?? chatId}`;
-    // Không có email thật từ Telegram -> dùng địa chỉ giả định nhất
-    // quán theo chatId để FindOrCreateCustomerUseCase gom đúng 1
-    // Customer cho cùng 1 chatId qua các lần nhắn khác nhau.
     const syntheticEmail = `telegram-${chatId}@telegram.local`;
 
     return {
@@ -51,13 +48,36 @@ export class TelegramChannelAdapter implements IChannelAdapter {
     };
   }
 
-  async sendReply(ticketId: string, content: string): Promise<void> {
-    // sendReply chưa được gọi ở Đợt Ngày 4 (khách xem câu trả lời qua
-    // Dashboard/API); để sẵn interface cho Phase sau khi có nhu cầu "đẩy"
-    // chủ động tin nhắn về Telegram (cần tra chatId từ channelMetadata
-    // của tin nhắn đầu tiên của ticket).
-    this.logger.warn(
-      `sendReply() chưa được implement cho TelegramChannelAdapter (ticketId=${ticketId}, content length=${content.length}, botTokenConfigured=${Boolean(this.botToken)})`,
-    );
+  async sendReply(_ticketId: string, _content: string): Promise<void> {
+    // Port cũ nhận ticketId — không đủ để gửi Telegram (cần chatId).
+    // Dùng sendMessage() bên dưới thay thế, gọi trực tiếp từ Controller
+    // nơi đã có sẵn chatId từ command gốc.
+    this.logger.warn('sendReply(ticketId, content) không dùng cho Telegram — dùng sendMessage(chatId, content) thay thế.');
+  }
+
+  /**
+   * Gửi tin nhắn thật tới Telegram qua Bot API `sendMessage`. Không throw
+   * khi thiếu token — chỉ log cảnh báo, để lỗi gửi Telegram không làm
+   * fail toàn bộ webhook handler (ticket vẫn đã được tạo thành công).
+   */
+  async sendMessage(chatId: number | string, text: string): Promise<void> {
+    if (!this.botToken) {
+      this.logger.warn('TELEGRAM_BOT_TOKEN chưa cấu hình — bỏ qua gửi tin nhắn phản hồi.');
+      return;
+    }
+    try {
+      const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        this.logger.error(`Telegram sendMessage failed (${response.status}): ${body}`);
+      }
+    } catch (error) {
+      this.logger.error(`Telegram sendMessage threw: ${(error as Error).message}`);
+    }
   }
 }

@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log('🛠️  Worker process started — Document Parser + Embedding queues are being processed.');
 
-  const port = process.env.PORT ?? 3000;
+  const port = Number(process.env.WORKER_PORT ?? process.env.PORT ?? 3001);
   const healthServer = http.createServer((_req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', role: 'worker' }));
