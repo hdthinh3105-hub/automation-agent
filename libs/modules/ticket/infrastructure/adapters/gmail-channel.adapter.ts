@@ -65,6 +65,7 @@ export class GmailChannelAdapter implements IChannelAdapter {
       this.logger.warn('GMAIL_USER/GMAIL_APP_PASSWORD chưa cấu hình — bỏ qua gửi email phản hồi.');
       return;
     }
+    this.logger.log(`>>> Bắt đầu gửi email tới ${to} (subject="${subject}")`);
     try {
       const transporter = this.getTransporter();
       await transporter.sendMail({
@@ -75,15 +76,26 @@ export class GmailChannelAdapter implements IChannelAdapter {
       });
       this.logger.log(`Đã gửi email trả lời tới ${to}`);
     } catch (error) {
-      this.logger.error(`Gửi email thất bại: ${(error as Error).message}`);
+      this.logger.error(`Gửi email thất bại: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
   private getTransporter(): nodemailer.Transporter {
     if (!this.transporter) {
+      // Dùng host/port tường minh thay vì shorthand `service: 'gmail'`
+      // — trên một số PaaS (Render free tier), cách resolve DNS/host
+      // ngầm của `service: 'gmail'` đôi khi kết nối chậm/treo dẫn tới
+      // "Connection timeout" dù cùng code chạy ổn định ở máy local.
+      // Cổng 465 (SMTPS, secure:true) ổn định hơn cổng 587 (STARTTLS)
+      // trên môi trường container có outbound network hạn chế.
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: { user: this.gmailUser, pass: this.gmailAppPassword },
+        connectionTimeout: 20_000,
+        greetingTimeout: 20_000,
+        socketTimeout: 20_000,
       });
     }
     return this.transporter;
