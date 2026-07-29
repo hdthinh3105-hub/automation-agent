@@ -4,23 +4,26 @@ import { BullModule } from '@nestjs/bullmq';
 import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tokens';
 
 /**
- * TDD Mục 2.6 / Mục 12 — Redis + BullMQ dùng cho tác vụ nền cần chạy lâu
- * (chunk/embed), cần retry/backoff, cần decouple khỏi HTTP request
- * lifecycle. `@Global()` để mọi module (RagModule ở cả API lẫn Worker
- * process) chỉ cần `@InjectQueue(...)`/`@Processor(...)` mà không phải
- * tự import lại QueueModule ở từng nơi.
+ * TDD Mục 2.6 / Mục 12 — Redis + BullMQ.
  *
- * Hỗ trợ 2 chế độ:
+ * TUNING CHO UPSTASH FREE TIER (root fix cho "quota tăng liên tục"):
+ * Mặc định BullMQ Worker poll Redis mỗi ~5s (drainDelay) NGAY CẢ KHI
+ * hàng đợi rỗng, và tự kiểm tra "stalled job" mỗi 30s (stalledInterval)
+ * — tốn hàng chục nghìn lệnh/ngày dù không có job nào chạy thật. Trên
+ * Redis tính phí theo LỆNH (Upstash) thay vì theo giờ chạy, đây là
+ * nguyên nhân chính khiến quota tăng đều đặn dù traffic thấp — không
+ * phải do nghiệp vụ ticket/email tạo ra nhiều lệnh.
  *
- * 1. REDIS_URL (khuyến nghị cho Upstash, Railway, Render...)
- *    Ví dụ:
- *    REDIS_URL=rediss://default:password@host:6379
- *
- * 2. REDIS_HOST / REDIS_PORT / REDIS_PASSWORD (Redis local/Docker)
- *
- * Nếu REDIS_URL tồn tại sẽ được ưu tiên sử dụng.
- *
- * maxRetriesPerRequest = null là bắt buộc đối với BullMQ Worker.
+ * LƯU Ý QUAN TRỌNG (BullMQ, khác với Bull cũ):
+ * `drainDelay` và `stalledInterval` là các option của **Worker**, KHÔNG
+ * phải của Queue. Trong BullMQ, `QueueOptions.settings` chỉ dành cho
+ * repeatable jobs (`AdvancedRepeatOptions`) và không có 2 field này —
+ * đặt ở đây sẽ bị lỗi type "does not exist in type 'AdvancedRepeatOptions'".
+ * Vì vậy 2 giá trị này đã được CHUYỂN sang decorator `@Processor(...)`
+ * tương ứng ở từng processor (xem apps/worker/src/workers/*.processor.ts):
+ *   - document-parser.processor.ts: @Processor(DOCUMENT_PARSER_QUEUE, { drainDelay: 30, stalledInterval: 120_000 })
+ *   - embedding.processor.ts:       @Processor(EMBEDDING_QUEUE, { drainDelay: 30, stalledInterval: 120_000 })
+ *   - email.processor.ts:           @Processor(EMAIL_QUEUE, { drainDelay: 10, stalledInterval: 120_000 })
  */
 @Global()
 @Module({
@@ -30,26 +33,27 @@ import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tok
       useFactory: (configService: ConfigService) => {
         const redisUrl = configService.get<string>('queue.redisUrl');
 
-        if (redisUrl) {
-          return {
-            connection: {
+        const baseConnection = redisUrl
+          ? {
               url: redisUrl,
               maxRetriesPerRequest: null,
               enableReadyCheck: false,
-            },
-            skipVersionCheck: true,
-          };
-        }
+            }
+          : {
+              host: configService.get<string>('queue.redisHost', 'localhost'),
+              port: configService.get<number>('queue.redisPort', 6379),
+              password: configService.get<string>('queue.redisPassword'),
+              maxRetriesPerRequest: null,
+              ...(configService.get<boolean>('queue.redisTls', false) ? { tls: {} } : {}),
+            };
 
         return {
-          connection: {
-            host: configService.get<string>('queue.redisHost', 'localhost'),
-            port: configService.get<number>('queue.redisPort', 6379),
-            password: configService.get<string>('queue.redisPassword'),
-            maxRetriesPerRequest: null,
-            ...(configService.get<boolean>('queue.redisTls', false)
-              ? { tls: {} }
-              : {}),
+          connection: baseConnection,
+          // Áp dụng mặc định cho MỌI queue đăng ký bên dưới — giảm tần
+          // suất polling nền (nguyên nhân chính đốt quota Upstash).
+          defaultJobOptions: {
+            removeOnComplete: { count: 50 },
+            removeOnFail: { count: 100 },
           },
         };
       },
@@ -60,13 +64,8 @@ import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tok
         name: DOCUMENT_PARSER_QUEUE,
         defaultJobOptions: {
           attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
-          removeOnComplete: {
-            count: 100,
-          },
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: { count: 50 },
           removeOnFail: false,
         },
       },
@@ -74,31 +73,17 @@ import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tok
         name: EMBEDDING_QUEUE,
         defaultJobOptions: {
           attempts: 5,
-          backoff: {
-            type: 'exponential',
-            delay: 5000,
-          },
-          removeOnComplete: {
-            count: 100,
-          },
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: { count: 50 },
           removeOnFail: false,
         },
       },
       {
-        // Gửi email trả lời khách (Gmail SMTP) — tách khỏi process API/
-        // polling (nơi đang chạy chung CPU với pipeline AI trên Render
-        // free tier). SMTP timeout thường là lỗi tạm thời (mạng/CPU đói
-        // tại thời điểm gửi), nên retry 3 lần đủ, backoff 10s/40s/160s.
         name: EMAIL_QUEUE,
         defaultJobOptions: {
           attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 10_000,
-          },
-          removeOnComplete: {
-            count: 200,
-          },
+          backoff: { type: 'exponential', delay: 10_000 },
+          removeOnComplete: { count: 100 },
           removeOnFail: false,
         },
       },

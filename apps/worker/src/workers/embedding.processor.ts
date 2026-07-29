@@ -19,8 +19,12 @@ import {
  * xử lý chunk CHƯA có embedding (idempotent — TDD Mục 12 nguyên tắc
  * chung cho Worker: "chạy lại nhiều lần với cùng input không gây
  * side-effect sai").
+ *
+ * `drainDelay`/`stalledInterval` (root fix cho "quota tăng liên tục" trên
+ * Upstash) chuyển từ `QueueModule.registerQueue({ settings })` sang đây vì
+ * trong BullMQ đây là option của Worker, không phải của Queue.
  */
-@Processor(EMBEDDING_QUEUE)
+@Processor(EMBEDDING_QUEUE, { drainDelay: 30, stalledInterval: 120_000 })
 export class EmbeddingProcessor extends WorkerHost {
   private readonly logger = new Logger(EmbeddingProcessor.name);
 

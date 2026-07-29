@@ -25,8 +25,12 @@ import {
  * phát `DocumentProcessingFailedEvent` (Notification Module ở Phase 8 sẽ
  * lắng nghe để báo Admin — chưa có listener nào ở Đợt 1 này, sự kiện vẫn
  * được emit đúng chuẩn để không phải sửa lại chỗ này khi Phase 8 tới).
+ *
+ * `drainDelay`/`stalledInterval` (root fix cho "quota tăng liên tục" trên
+ * Upstash) chuyển từ `QueueModule.registerQueue({ settings })` sang đây vì
+ * trong BullMQ đây là option của Worker, không phải của Queue.
  */
-@Processor(DOCUMENT_PARSER_QUEUE)
+@Processor(DOCUMENT_PARSER_QUEUE, { drainDelay: 30, stalledInterval: 120_000 })
 export class DocumentParserProcessor extends WorkerHost {
   private readonly logger = new Logger(DocumentParserProcessor.name);
 
