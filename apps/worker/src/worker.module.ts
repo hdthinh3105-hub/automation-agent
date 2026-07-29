@@ -4,15 +4,24 @@ import { AppConfigModule } from '@app/config';
 import { PrismaModule, QueueModule } from '@app/infrastructure';
 import { KnowledgeBaseModule } from '@app/modules/knowledge-base';
 import { RagModule } from '@app/modules/rag';
+import { GmailChannelAdapter } from '@app/modules/ticket';
 import { DocumentParserProcessor } from './workers/document-parser.processor';
 import { EmbeddingProcessor } from './workers/embedding.processor';
+import { EmailProcessor } from './workers/email.processor';
 
 /**
  * Worker composition root (TDD apps/worker, Mục 12). Đăng ký toàn bộ
- * BullMQ Processor thật đầu tiên: Document Parser Worker + Embedding
- * Worker (Ngày 3 — RAG Pipeline). `RagModule`/`KnowledgeBaseModule`
- * cung cấp Use Case + Repository thật cho Processor gọi lại — Processor
- * chỉ là "adapter kích hoạt", không chứa business logic (TDD Mục 12).
+ * BullMQ Processor: Document Parser Worker + Embedding Worker (Ngày 3
+ * — RAG Pipeline) + Email Worker (root fix lỗi SMTP "Connection
+ * timeout" — tách gửi Gmail ra khỏi process API/polling để không tranh
+ * CPU với embedding/LLM). `RagModule`/`KnowledgeBaseModule` cung cấp
+ * Use Case + Repository thật cho Processor gọi lại — Processor chỉ là
+ * "adapter kích hoạt", không chứa business logic (TDD Mục 12).
+ * `GmailChannelAdapter` được đăng ký thẳng làm provider (không import
+ * cả `TicketModule`) vì nó chỉ phụ thuộc `ConfigService` (global) và
+ * `EMAIL_QUEUE` (từ `QueueModule`, đã import bên dưới) — tránh kéo thêm
+ * `CustomerModule`/`ConversationModule`/các controller không cần thiết
+ * vào process Worker vốn đã giới hạn tài nguyên (Render free tier).
  *
  * `EventEmitterModule.forRoot()` BẮT BUỘC phải có ở đây (không chỉ ở
  * apps/api) — vì `KnowledgeBaseModule`/`RagModule` dùng chung codebase
@@ -33,6 +42,6 @@ import { EmbeddingProcessor } from './workers/embedding.processor';
     KnowledgeBaseModule,
     RagModule,
   ],
-  providers: [DocumentParserProcessor, EmbeddingProcessor],
+  providers: [DocumentParserProcessor, EmbeddingProcessor, GmailChannelAdapter, EmailProcessor],
 })
 export class WorkerModule {}

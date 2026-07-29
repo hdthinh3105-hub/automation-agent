@@ -5,6 +5,7 @@
  */
 export const DOCUMENT_PARSER_QUEUE = 'document-parser';
 export const EMBEDDING_QUEUE = 'embedding';
+export const EMAIL_QUEUE = 'email';
 
 export interface DocumentParserJobData {
   documentId: string;
@@ -12,4 +13,10 @@ export interface DocumentParserJobData {
 
 export interface EmbeddingJobData {
   documentId: string;
+}
+
+export interface EmailJobData {
+  to: string;
+  subject: string;
+  text: string;
 }

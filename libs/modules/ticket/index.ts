@@ -11,3 +11,4 @@ export * from './domain/exceptions/ticket.exception';
 export * from './application/ports/repository.ports';
 export * from './application/ports/channel-adapter.port';
 export * from './application/ports/ai-pipeline-trigger.port';
+export * from './infrastructure/adapters/gmail-channel.adapter';

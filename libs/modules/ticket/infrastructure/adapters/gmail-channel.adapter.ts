@@ -1,13 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import * as nodemailer from 'nodemailer';
 import { ParsedMail } from 'mailparser';
 import { convert as htmlToText } from 'html-to-text';
 import { IChannelAdapter, CreateTicketCommand } from '../../application/ports/channel-adapter.port';
+import { EMAIL_QUEUE, EmailJobData } from '@app/infrastructure';
 
 /**
  * Channel Adapter — Could have (TDD Mục 5.3, 14.1). Thay thế Mailgun:
  * dùng thẳng Gmail cá nhân qua IMAP (nhận) và SMTP (gửi trả lời).
+ *
+ * ROOT FIX (sau khi loại trừ giả thuyết "Render free tier chặn SMTP" —
+ * dự án EventHub cùng hạ tầng Render free tier gửi SMTP bình thường):
+ * nguyên nhân thật là process API/polling này chạy CHUNG CPU (Render
+ * free tier, throttle mạnh) với pipeline AI (local embedding model,
+ * LLM re-ranking) ngay trong cùng request xử lý email. TLS handshake
+ * của SMTP cần CPU cho crypto — nếu bị đói CPU ngay sau khi vừa chạy
+ * embedding, handshake không kịp hoàn tất trong `connectionTimeout` dù
+ * mạng không hề bị chặn.
+ *
+ * `sendMail()` giờ CHỈ enqueue job vào `EMAIL_QUEUE` (BullMQ/Redis) —
+ * trả về gần như ngay lập tức, không còn chạm SMTP trong process API/
+ * polling. Việc gửi SMTP thật được chuyển hẳn sang `EmailProcessor`
+ * (apps/worker) — 1 process riêng, không tranh CPU với embedding/LLM.
  */
 @Injectable()
 export class GmailChannelAdapter implements IChannelAdapter {
@@ -16,7 +33,10 @@ export class GmailChannelAdapter implements IChannelAdapter {
   private readonly gmailAppPassword: string | undefined;
   private transporter: nodemailer.Transporter | null = null;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue<EmailJobData>,
+  ) {
     this.gmailUser = this.configService.get<string>('email.gmailUser');
     this.gmailAppPassword = this.configService.get<string>('email.gmailAppPassword');
   }
@@ -60,24 +80,52 @@ export class GmailChannelAdapter implements IChannelAdapter {
     );
   }
 
+  /**
+   * Gọi từ GmailPollingService/luồng xử lý request — CHỈ enqueue, không
+   * gửi SMTP trực tiếp ở đây nữa (xem ghi chú ROOT FIX ở đầu file).
+   */
   async sendMail(to: string, subject: string, text: string): Promise<void> {
     if (!this.gmailUser || !this.gmailAppPassword) {
       this.logger.warn('GMAIL_USER/GMAIL_APP_PASSWORD chưa cấu hình — bỏ qua gửi email phản hồi.');
       return;
     }
-    this.logger.log(`>>> Bắt đầu gửi email tới ${to} (subject="${subject}")`);
     try {
-      const transporter = this.getTransporter();
-      await transporter.sendMail({
-        from: `"Hỗ trợ khách hàng" <${this.gmailUser}>`,
-        to,
-        subject,
-        text,
-      });
-      this.logger.log(`Đã gửi email trả lời tới ${to}`);
+      await this.emailQueue.add(
+        'send',
+        { to, subject, text },
+        // jobId để BullMQ tự loại trùng nếu vô tình enqueue lại đúng
+        // (to, subject) trong cùng giây — không bắt buộc nhưng an toàn.
+        { jobId: `email:${Date.now()}:${to}` },
+      );
+      this.logger.log(`>>> Đã enqueue email tới ${to} (subject="${subject}") — worker sẽ gửi.`);
     } catch (error) {
-      this.logger.error(`Gửi email thất bại: ${(error as Error).message}`, (error as Error).stack);
+      // Lỗi enqueue (Redis down...) khác hẳn lỗi SMTP — vẫn log rõ
+      // nhưng không throw để không làm hỏng luồng tạo ticket/mark \Seen.
+      this.logger.error(`Enqueue email thất bại: ${(error as Error).message}`, (error as Error).stack);
     }
+  }
+
+  /**
+   * Gửi SMTP THẬT — chỉ được gọi từ `EmailProcessor` (apps/worker), một
+   * process riêng biệt không tranh CPU với pipeline AI. KHÔNG catch lỗi
+   * ở đây: để lỗi throw ra ngoài cho BullMQ tự retry theo
+   * `defaultJobOptions` đã khai báo ở `QueueModule` (3 lần, backoff
+   * 10s/40s/160s).
+   */
+  async sendMailDirect(to: string, subject: string, text: string): Promise<void> {
+    if (!this.gmailUser || !this.gmailAppPassword) {
+      this.logger.warn('GMAIL_USER/GMAIL_APP_PASSWORD chưa cấu hình — bỏ qua gửi email phản hồi.');
+      return;
+    }
+    this.logger.log(`>>> Bắt đầu gửi email tới ${to} (subject="${subject}")`);
+    const transporter = this.getTransporter();
+    await transporter.sendMail({
+      from: `"Hỗ trợ khách hàng" <${this.gmailUser}>`,
+      to,
+      subject,
+      text,
+    });
+    this.logger.log(`Đã gửi email trả lời tới ${to}`);
   }
 
   private getTransporter(): nodemailer.Transporter {

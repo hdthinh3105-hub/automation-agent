@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
-import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE } from './queue.tokens';
+import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tokens';
 
 /**
  * TDD Mục 2.6 / Mục 12 — Redis + BullMQ dùng cho tác vụ nền cần chạy lâu
@@ -78,6 +78,24 @@ import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE } from './queue.tokens';
           },
           removeOnComplete: {
             count: 100,
+          },
+          removeOnFail: false,
+        },
+      },
+      {
+        // Gửi email trả lời khách (Gmail SMTP) — tách khỏi process API/
+        // polling (nơi đang chạy chung CPU với pipeline AI trên Render
+        // free tier). SMTP timeout thường là lỗi tạm thời (mạng/CPU đói
+        // tại thời điểm gửi), nên retry 3 lần đủ, backoff 10s/40s/160s.
+        name: EMAIL_QUEUE,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 10_000,
+          },
+          removeOnComplete: {
+            count: 200,
           },
           removeOnFail: false,
         },
