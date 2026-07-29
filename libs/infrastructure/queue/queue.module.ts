@@ -35,7 +35,9 @@ import { DOCUMENT_PARSER_QUEUE, EMBEDDING_QUEUE, EMAIL_QUEUE } from './queue.tok
             connection: {
               url: redisUrl,
               maxRetriesPerRequest: null,
+              enableReadyCheck: false,
             },
+            skipVersionCheck: true,
           };
         }
 
