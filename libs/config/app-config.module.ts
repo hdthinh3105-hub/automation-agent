@@ -12,6 +12,7 @@ import {
   ragConfig,
   queueConfig,
   telegramConfig,
+  emailConfig,
 } from './configuration';
 import { validateEnv } from './env.validation';
 
@@ -33,6 +34,7 @@ import { validateEnv } from './env.validation';
         ragConfig,
         queueConfig,
         telegramConfig,
+        emailConfig,
       ],
     }),
   ],

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from '@app/config';
@@ -23,6 +24,10 @@ import { AppController } from './app.controller';
     PrismaModule,
     QueueModule,
     EventEmitterModule.forRoot(),
+    // Ngày 4 — cần cho GmailPollingService (@Cron) chạy định kỳ kiểm tra
+    // hộp thư IMAP mỗi 2 phút thay cho webhook push (Mailgun không dùng
+    // theo yêu cầu thực tế — dùng thẳng Gmail cá nhân).
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     LoggerModule.forRoot({
       pinoHttp: {
@@ -46,7 +51,6 @@ import { AppController } from './app.controller';
   ],
   controllers: [AppController],
   providers: [
-    // Order matters: rate limiting -> auth -> RBAC.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

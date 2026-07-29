@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 /**
- * Env schema for Phase 1+2 (Setup + Auth). Vars needed only by later
- * phases (LLM keys, SMTP, etc.) are declared optional here so boot
- * doesn't fail before those modules exist — they will be tightened
- * (made required) in the Phase that actually needs them, per TDD §2.7:
- * "fail-fast nếu thiếu biến môi trường bắt buộc".
+ * Env schema cho toàn bộ project tính tới Ngày 4. Vars chỉ cần cho
+ * module optional (LLM keys, Telegram, Gmail...) khai báo optional để
+ * boot không fail — mỗi module tự throw lỗi rõ ràng khi thực sự được
+ * gọi mà thiếu cấu hình (TDD Mục 2.7: "fail-fast nhưng không chặn boot
+ * của cả hệ thống chỉ vì 1 module con chưa cấu hình").
  */
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -32,14 +32,6 @@ export const envSchema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  // ---- LLM / Embedding (Phase 5 — RAG Pipeline) ----
-  // GROQ_API_KEY/GEMINI_API_KEY vẫn optional ở mức boot: EMBEDDING_PROVIDER
-  // mặc định "local" (bge-small qua @xenova/transformers, không cần key)
-  // nên hệ thống chunk/embed chạy được ngay không cần key nào. Key chỉ
-  // thật sự bắt buộc khi LlmOrchestratorProvider được GỌI (Answer
-  // Generation, Phase 5 Đợt 2 / Phase 6) — lúc đó orchestrator tự throw
-  // lỗi rõ ràng nếu thiếu, đúng tinh thần "fail-fast nhưng không chặn
-  // boot của cả hệ thống chỉ vì 1 module con chưa cấu hình" (TDD §2.7).
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   GEMINI_API_KEY: z.string().optional(),
@@ -48,7 +40,6 @@ export const envSchema = z.object({
   EMBEDDING_MODEL: z.string().default('Xenova/bge-small-en-v1.5'),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(384),
 
-  // ---- Chunking / Retrieval strategy (config-driven, TDD §2.7) ----
   CHUNK_SIZE_TOKENS: z.coerce.number().int().positive().default(500),
   CHUNK_OVERLAP_TOKENS: z.coerce.number().int().min(0).default(75),
   RAG_TOP_K_RETRIEVAL: z.coerce.number().int().positive().default(15),
@@ -57,24 +48,26 @@ export const envSchema = z.object({
 
   AI_CONFIDENCE_ESCALATION_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   SPAM_SCORE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+
+  // ---- Gmail channel (Ngày 4) ----
+  GMAIL_USER: z.string().optional(),
+  GMAIL_APP_PASSWORD: z.string().optional(),
+  EMAIL_POLLING_ENABLED: z.coerce.boolean().default(false),
+
   STORAGE_DRIVER: z.string().optional(),
   STORAGE_LOCAL_PATH: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
-/**
- * Passed to `ConfigModule.forRoot({ validate })`. Nest calls this once
- * on boot with `process.env`; throwing here stops the app from starting
- * with an incomplete/invalid configuration instead of failing later at
- * a random point in the request lifecycle.
- */
 export function validateEnv(config: Record<string, unknown>): EnvConfig {
   const parsed = envSchema.safeParse(config);
   if (!parsed.success) {

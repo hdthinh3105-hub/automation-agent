@@ -39,9 +39,14 @@ export interface ProcessIncomingMessageResult {
  * -> Priority -> (Knowledge Retrieval + Answer Generation + Confidence
  * Evaluation qua RAG Module) -> Escalation Decision (Routing Module) ->
  * Auto Response hoặc Human Agent (Escalation Module). "Saga đơn giản,
- * đồng bộ trong 1 lần chạy" (TDD Mục 8) — không cần compensation phức
- * tạp vì đây là luồng đọc-tính toán; side-effect duy nhất có nguy cơ lỗi
- * (ghi PromptLog) đã tự bọc try/catch riêng (non-fatal, PromptLogService).
+ * đồng bộ trong 1 lần chạy" (TDD Mục 8).
+ *
+ * Bước RAG (Answer Generation) được bọc try/catch riêng: nếu TOÀN BỘ
+ * LLM provider trong fallback chain đều lỗi (vd hết quota free-tier
+ * Groq + Gemini cùng lúc — rủi ro đã ghi ở TDD Mục 15), pipeline KHÔNG
+ * để ticket kẹt mãi ở CLASSIFIED mà tự động escalate cho Agent xử lý
+ * thủ công, đúng tinh thần "nhận biết giới hạn của hệ thống" mà đề bài
+ * yêu cầu — thay vì im lặng thất bại.
  */
 @Injectable()
 export class ProcessIncomingMessageUseCase {
@@ -76,8 +81,7 @@ export class ProcessIncomingMessageUseCase {
     }
     const content = lastCustomerMessage.content;
 
-    // ---- Bước 2: Spam Detection (chạy trước Classification — heuristic
-    // rẻ, không cần biết category để phát hiện rác/quảng cáo) ----
+    // ---- Bước 2: Spam Detection ----
     const spamResult = this.spamDetectionService.detect(content);
     if (spamResult.isSpam) {
       ticket.markSpamAndClose('system:ai_spam_detection');
@@ -107,8 +111,6 @@ export class ProcessIncomingMessageUseCase {
 
     this.transitionIfNeeded(ticket, TicketStatus.CLASSIFIED, 'system:ai_classification');
 
-    // TDD Mục 8, bảng "Missing Info Detection": nếu thiếu -> Routing
-    // quyết định ASK_MORE_INFO, DỪNG pipeline tại đây, không sang bước 6.
     if (missingInfoFlags.length > 0) {
       this.transitionIfNeeded(ticket, TicketStatus.WAITING_CUSTOMER, 'system:ai_missing_info');
       await this.ticketRepository.save(ticket);
@@ -119,10 +121,6 @@ export class ProcessIncomingMessageUseCase {
       return this.buildResult(ticket, false, duplicateResult.isDuplicate, missingInfoFlags, null, null, false);
     }
 
-    // Ticket trùng lặp vẫn được phân loại/ưu tiên nhưng KHÔNG chạy RAG
-    // (TDD Mục 8, bảng bước 6: "chỉ chạy nếu không spam, không
-    // duplicate, đủ thông tin") — escalate luôn để Agent xử lý theo
-    // ticket gốc, tránh trả lời trùng 2 lần cho cùng 1 vấn đề.
     if (duplicateResult.isDuplicate) {
       await this.ticketRepository.save(ticket);
       await this.escalate(ticket, 'COMPLEX_CASE', `Duplicate of ticket ${duplicateResult.duplicateOfTicketId}`);
@@ -133,29 +131,60 @@ export class ProcessIncomingMessageUseCase {
     await this.dispatchEvents(ticket);
 
     // ---- Bước 6+7+8: Knowledge Retrieval + Answer Generation + Confidence (RAG Module) ----
+    // Bọc try/catch riêng: nếu TOÀN BỘ LLM provider (Groq + Gemini) đều
+    // lỗi (hết quota/rate-limit/model deprecated), KHÔNG để lỗi văng lên
+    // làm ticket kẹt mãi ở CLASSIFIED — escalate ngay cho Agent, đúng
+    // tinh thần "nhận biết giới hạn dữ liệu/độ tin cậy" của đề bài.
     const startedAt = Date.now();
-    const answerResult = await this.generateAnswerUseCase.execute(content);
-    void this.promptLogService.log({
-      ticketId,
-      useCase: 'rag_answer_generation',
-      provider: answerResult.provider,
-      model: answerResult.model,
-      latencyMs: Date.now() - startedAt,
-      responseRaw: answerResult.answer,
-    });
+    try {
+      const answerResult = await this.generateAnswerUseCase.execute(content);
+      void this.promptLogService.log({
+        ticketId,
+        useCase: 'rag_answer_generation',
+        provider: answerResult.provider,
+        model: answerResult.model,
+        latencyMs: Date.now() - startedAt,
+        responseRaw: answerResult.answer,
+      });
 
-    ticket.applyConfidenceScore(answerResult.confidence);
-    await this.ticketRepository.save(ticket);
+      ticket.applyConfidenceScore(answerResult.confidence);
+      await this.ticketRepository.save(ticket);
 
-    // ---- Bước 9: Escalation Decision (Routing Module) ----
-    const routingDecision = this.determineRoutingUseCase.execute({ confidence: answerResult.confidence });
+      // ---- Bước 9: Escalation Decision (Routing Module) ----
+      const routingDecision = this.determineRoutingUseCase.execute({ confidence: answerResult.confidence });
 
-    if (routingDecision.action === 'ESCALATE') {
-      await this.escalate(ticket, 'LOW_CONFIDENCE', routingDecision.reason);
-      // Vẫn lưu câu trả lời AI đã soạn vào Conversation làm ngữ cảnh cho
-      // Agent tiếp tục (TDD Mục 8: "đủ bối cảnh hội thoại để Agent
-      // không phải hỏi lại"), dù ticket không tự động trả lời khách.
+      if (routingDecision.action === 'ESCALATE') {
+        await this.escalate(ticket, 'LOW_CONFIDENCE', routingDecision.reason);
+        await this.appendTurnUseCase.execute(ticketId, TurnRole.ASSISTANT, answerResult.answer);
+        return this.buildResult(
+          ticket,
+          false,
+          false,
+          missingInfoFlags,
+          answerResult.confidence,
+          answerResult.answer,
+          true,
+        );
+      }
+
+      // ---- Bước 10+11: Auto Response ----
+      this.transitionIfNeeded(ticket, TicketStatus.ANSWERED, 'system:ai_auto_answer');
+      await this.ticketRepository.save(ticket);
+      await this.dispatchEvents(ticket);
+
+      const aiMessage = TicketMessage.create({
+        id: uuid(),
+        ticketId,
+        sender: MessageSender.AI,
+        content: answerResult.answer,
+      });
+      await this.ticketRepository.saveMessage(aiMessage);
       await this.appendTurnUseCase.execute(ticketId, TurnRole.ASSISTANT, answerResult.answer);
+
+      this.logger.log(
+        `Ticket "${ticketId}" auto-answered (confidence=${answerResult.confidence.toFixed(2)})`,
+      );
+
       return this.buildResult(
         ticket,
         false,
@@ -163,37 +192,24 @@ export class ProcessIncomingMessageUseCase {
         missingInfoFlags,
         answerResult.confidence,
         answerResult.answer,
-        true,
+        false,
       );
+    } catch (error) {
+      const reason = (error as Error).message;
+      this.logger.error(
+        `Ticket "${ticketId}": RAG Answer Generation thất bại hoàn toàn (mọi LLM provider lỗi), escalate thay vì để kẹt trạng thái. Chi tiết: ${reason}`,
+      );
+      void this.promptLogService.log({
+        ticketId,
+        useCase: 'rag_answer_generation_failed',
+        provider: 'none',
+        model: 'none',
+        latencyMs: Date.now() - startedAt,
+        responseRaw: reason,
+      });
+      await this.escalate(ticket, 'COMPLEX_CASE', `RAG pipeline failed: ${reason}`);
+      return this.buildResult(ticket, false, false, missingInfoFlags, null, null, true);
     }
-
-    // ---- Bước 10+11: Auto Response ----
-    this.transitionIfNeeded(ticket, TicketStatus.ANSWERED, 'system:ai_auto_answer');
-    await this.ticketRepository.save(ticket);
-    await this.dispatchEvents(ticket);
-
-    const aiMessage = TicketMessage.create({
-      id: uuid(),
-      ticketId,
-      sender: MessageSender.AI,
-      content: answerResult.answer,
-    });
-    await this.ticketRepository.saveMessage(aiMessage);
-    await this.appendTurnUseCase.execute(ticketId, TurnRole.ASSISTANT, answerResult.answer);
-
-    this.logger.log(
-      `Ticket "${ticketId}" auto-answered (confidence=${answerResult.confidence.toFixed(2)})`,
-    );
-
-    return this.buildResult(
-      ticket,
-      false,
-      false,
-      missingInfoFlags,
-      answerResult.confidence,
-      answerResult.answer,
-      false,
-    );
   }
 
   private transitionIfNeeded(ticket: Ticket, target: TicketStatus, actor: string): void {

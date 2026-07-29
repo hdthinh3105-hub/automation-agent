@@ -14,7 +14,6 @@ export const databaseConfig = registerAs('database', () => ({
 
 export const redisConfig = registerAs('redis', () => ({
   url: process.env.REDIS_URL,
-
   host: process.env.REDIS_HOST ?? 'localhost',
   port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   password: process.env.REDIS_PASSWORD || undefined,
@@ -44,7 +43,12 @@ export const llmConfig = registerAs('llm', () => ({
   groqApiKey: process.env.GROQ_API_KEY || undefined,
   groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
   geminiApiKey: process.env.GEMINI_API_KEY || undefined,
-  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash',
+  // "gemini-1.5-flash"/"gemini-2.0-flash" đã bị Google shutdown hẳn
+  // (01/06/2026); "gemini-2.5-flash" bị chặn cấp cho project/API key
+  // mới. "gemini-flash-latest" là alias Google tự trỏ sang model ổn
+  // định mới nhất còn active — tránh phải sửa code mỗi lần Google
+  // deprecate model cụ thể (rủi ro đã ghi ở TDD Mục 15).
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-flash-latest',
 }));
 
 export const embeddingConfig = registerAs('embedding', () => ({
@@ -60,16 +64,11 @@ export const ragConfig = registerAs('rag', () => ({
   topKFinal: parseInt(process.env.RAG_TOP_K_FINAL ?? '5', 10),
   embeddingBatchSize: parseInt(process.env.RAG_EMBEDDING_BATCH_SIZE ?? '16', 10),
   confidenceEscalationThreshold: parseFloat(process.env.AI_CONFIDENCE_ESCALATION_THRESHOLD ?? '0.6'),
-  // Ngày 4 — AI Module (SpamDetectionService) tái sử dụng namespace `rag`
-  // config có sẵn thay vì tạo thêm registerAs('ai', ...) riêng: env var
-  // SPAM_SCORE_THRESHOLD đã tồn tại từ Đợt 2 (env.validation.ts) nhưng
-  // chưa được map vào bất kỳ config namespace nào.
   spamScoreThreshold: parseFloat(process.env.SPAM_SCORE_THRESHOLD ?? '0.8'),
 }));
 
 export const queueConfig = registerAs('queue', () => ({
   redisUrl: process.env.REDIS_URL,
-
   redisHost: process.env.REDIS_HOST ?? 'localhost',
   redisPort: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   redisPassword: process.env.REDIS_PASSWORD || undefined,
@@ -78,4 +77,10 @@ export const queueConfig = registerAs('queue', () => ({
 
 export const telegramConfig = registerAs('telegram', () => ({
   botToken: process.env.TELEGRAM_BOT_TOKEN || undefined,
+}));
+
+export const emailConfig = registerAs('email', () => ({
+  gmailUser: process.env.GMAIL_USER || undefined,
+  gmailAppPassword: process.env.GMAIL_APP_PASSWORD || undefined,
+  pollingEnabled: (process.env.EMAIL_POLLING_ENABLED ?? 'false').toLowerCase() === 'true',
 }));
