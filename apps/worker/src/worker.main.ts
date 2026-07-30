@@ -16,9 +16,7 @@ import { WorkerModule } from './worker.module';
  * thống (ghi vào Nhật ký quyết định, TDD Mục 17).
  */
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.createApplicationContext(WorkerModule, {
-    bufferLogs: true,
-  });
+  const app = await NestFactory.createApplicationContext(WorkerModule);
   // eslint-disable-next-line no-console
   console.log('🛠️  Worker process started — Document Parser + Embedding queues are being processed.');
 
