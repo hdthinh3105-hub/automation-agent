@@ -61,3 +61,23 @@ export class TicketMessageResponseDto {
   content!: string;
   createdAt!: Date;
 }
+
+/**
+ * TDD Mục 5.3 — Web Chat Widget cần đọc lại ticket (status + messages)
+ * mà KHÔNG có JWT (khách hàng không đăng nhập). Dto này CHỈ trả field
+ * an toàn để lộ ra ngoài (không có category/priority/confidenceScore/
+ * assignedAgentId — thông tin nội bộ dành cho Agent).
+ */
+export class TicketPublicMessageDto {
+  id!: string;
+  sender!: string;
+  content!: string;
+  createdAt!: Date;
+}
+
+export class TicketPublicResponseDto {
+  id!: string;
+  subject!: string;
+  status!: string;
+  messages!: TicketPublicMessageDto[];
+}

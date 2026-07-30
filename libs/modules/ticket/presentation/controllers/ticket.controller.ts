@@ -11,6 +11,7 @@ import {
   ListTicketsQueryDto,
   TicketResponseDto,
   TicketMessageResponseDto,
+  TicketPublicResponseDto,
 } from '../../application/dto/ticket.dto';
 import { CreateTicketUseCase } from '../../application/use-cases/create-ticket.use-case';
 import { UpdateTicketStatusUseCase } from '../../application/use-cases/update-ticket-status.use-case';
@@ -19,6 +20,7 @@ import {
   ListTicketsUseCase,
   GetTicketDetailUseCase,
 } from '../../application/use-cases/ticket-queries.use-case';
+import { GetTicketPublicUseCase } from '../../application/use-cases/get-ticket-public.use-case';
 import { WebChannelAdapter } from '../../infrastructure/adapters/web-channel.adapter';
 import { TicketStatus } from '../../domain/value-objects/ticket-status.vo';
 import { TicketListItem } from '../../application/ports/repository.ports';
@@ -31,6 +33,7 @@ export class TicketController {
     private readonly addCustomerMessageUseCase: AddCustomerMessageUseCase,
     private readonly listTicketsUseCase: ListTicketsUseCase,
     private readonly getTicketDetailUseCase: GetTicketDetailUseCase,
+    private readonly getTicketPublicUseCase: GetTicketPublicUseCase,
     private readonly webChannelAdapter: WebChannelAdapter,
   ) {}
 
@@ -54,6 +57,17 @@ export class TicketController {
     @Body() dto: AddCustomerMessageDto,
   ): Promise<TicketMessageResponseDto> {
     return this.addCustomerMessageUseCase.execute(id, dto.content);
+  }
+
+  /**
+   * Public — Web Chat Widget đọc lại hội thoại (status + messages) sau
+   * khi tạo ticket, KHÔNG cần JWT (TDD Mục 5.3). Route có 2 segment
+   * (`:id/public`) nên không đụng route `:id` phía dưới (1 segment).
+   */
+  @Public()
+  @Get(':id/public')
+  async detailPublic(@Param('id') id: string): Promise<TicketPublicResponseDto> {
+    return this.getTicketPublicUseCase.execute(id);
   }
 
   @Get()

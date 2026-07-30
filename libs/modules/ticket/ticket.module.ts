@@ -16,6 +16,7 @@ import {
   ListTicketsUseCase,
   GetTicketDetailUseCase,
 } from './application/use-cases/ticket-queries.use-case';
+import { GetTicketPublicUseCase } from './application/use-cases/get-ticket-public.use-case';
 import { TicketController } from './presentation/controllers/ticket.controller';
 import { TelegramWebhookController } from './presentation/controllers/telegram-webhook.controller';
 import { EmailWebhookController } from './presentation/controllers/email-webhook.controller';
@@ -38,6 +39,7 @@ import { ConversationModule } from '@app/modules/conversation';
     AddCustomerMessageUseCase,
     ListTicketsUseCase,
     GetTicketDetailUseCase,
+    GetTicketPublicUseCase,
   ],
   exports: [TICKET_REPOSITORY, TICKET_READ_REPOSITORY],
 })
