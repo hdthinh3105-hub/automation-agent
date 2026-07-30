@@ -2,8 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuid } from 'uuid';
-import * as fs from 'fs';
-import * as path from 'path';
+import { FILE_STORAGE, IFileStorage } from '@app/infrastructure';
 import {
   KNOWLEDGE_DOCUMENT_REPOSITORY,
   IKnowledgeDocumentRepository,
@@ -23,17 +22,12 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
-/**
- * 🎯 Use Case — lưu file gốc + tạo record `KnowledgeDocument(status=PENDING)`,
- * phát DocumentUploadedEvent (TDD Mục 5.5, 7.2 bước [1]). KHÔNG tự
- * chunk/embed — đó là việc của RAG Module ở Phase 5, lắng nghe qua Event
- * (đúng ranh giới module, TDD Mục 2.4).
- */
 @Injectable()
 export class UploadDocumentUseCase {
   constructor(
     @Inject(KNOWLEDGE_DOCUMENT_REPOSITORY)
     private readonly documentRepository: IKnowledgeDocumentRepository,
+    @Inject(FILE_STORAGE) private readonly fileStorage: IFileStorage,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
   ) {}
@@ -56,19 +50,14 @@ export class UploadDocumentUseCase {
       throw new DocumentTooLargeException(file.size, maxSizeBytes);
     }
 
-    const storageDir = this.configService.get<string>('storage.localPath')!;
-    if (!fs.existsSync(storageDir)) {
-      fs.mkdirSync(storageDir, { recursive: true });
-    }
     const storedFileName = `${Date.now()}-${file.originalname}`;
-    const storedPath = path.join(storageDir, storedFileName);
-    fs.writeFileSync(storedPath, file.buffer);
+    const uploaded = await this.fileStorage.upload(file.buffer, storedFileName, file.mimetype);
 
     const document = KnowledgeDocument.create({
       id: uuid(),
       title,
       sourceType: DocumentSourceType.FILE,
-      filePath: storedPath,
+      filePath: uploaded.url, // giờ là URL Cloudinary thay vì đường dẫn local
       tags,
       uploadedBy,
     });

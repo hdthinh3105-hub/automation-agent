@@ -84,3 +84,18 @@ export const emailConfig = registerAs('email', () => ({
   gmailAppPassword: process.env.GMAIL_APP_PASSWORD || undefined,
   pollingEnabled: (process.env.EMAIL_POLLING_ENABLED ?? 'false').toLowerCase() === 'true',
 }));
+
+export const notificationConfig = registerAs('notification', () => ({
+  adminEmail: process.env.ADMIN_NOTIFICATION_EMAIL || undefined,
+  smtpHost: process.env.SMTP_HOST || undefined,
+  smtpPort: parseInt(process.env.SMTP_PORT ?? '587', 10),
+  smtpUser: process.env.SMTP_USER || undefined,
+  smtpPass: process.env.SMTP_PASS || undefined,
+  smtpFrom: process.env.SMTP_FROM || undefined,
+}));
+
+export const cloudinaryConfig = registerAs('cloudinary', () => ({
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME || undefined,
+  apiKey: process.env.CLOUDINARY_API_KEY || undefined,
+  apiSecret: process.env.CLOUDINARY_API_SECRET || undefined,
+}));

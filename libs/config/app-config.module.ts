@@ -13,6 +13,8 @@ import {
   queueConfig,
   telegramConfig,
   emailConfig,
+  notificationConfig,
+  cloudinaryConfig,
 } from './configuration';
 import { validateEnv } from './env.validation';
 
@@ -35,6 +37,8 @@ import { validateEnv } from './env.validation';
         queueConfig,
         telegramConfig,
         emailConfig,
+        notificationConfig,
+        cloudinaryConfig,
       ],
     }),
   ],

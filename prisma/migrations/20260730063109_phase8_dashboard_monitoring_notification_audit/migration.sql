@@ -31,6 +31,15 @@ CREATE TYPE "EscalationReason" AS ENUM ('LOW_CONFIDENCE', 'EXPLICIT_REQUEST', 'P
 -- CreateEnum
 CREATE TYPE "EscalationStatus" AS ENUM ('PENDING', 'ACKNOWLEDGED', 'RESOLVED');
 
+-- CreateEnum
+CREATE TYPE "ActorType" AS ENUM ('USER', 'AI', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "NotificationChannel" AS ENUM ('EMAIL', 'WEBHOOK');
+
+-- CreateEnum
+CREATE TYPE "NotificationStatus" AS ENUM ('QUEUED', 'SENT', 'FAILED');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -211,6 +220,50 @@ CREATE TABLE "prompt_logs" (
     CONSTRAINT "prompt_logs_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "audit_logs" (
+    "id" TEXT NOT NULL,
+    "actor_type" "ActorType" NOT NULL,
+    "actor_id" TEXT,
+    "action" TEXT NOT NULL,
+    "resource_type" TEXT NOT NULL,
+    "resource_id" TEXT NOT NULL,
+    "changes_json" JSONB,
+    "ip_address" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notification_logs" (
+    "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "recipient" TEXT NOT NULL,
+    "channel" "NotificationChannel" NOT NULL,
+    "status" "NotificationStatus" NOT NULL DEFAULT 'QUEUED',
+    "payload" JSONB,
+    "error_reason" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sent_at" TIMESTAMP(3),
+
+    CONSTRAINT "notification_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "daily_metric_snapshots" (
+    "date" TIMESTAMP(3) NOT NULL,
+    "total_tickets" INTEGER NOT NULL DEFAULT 0,
+    "auto_resolved_count" INTEGER NOT NULL DEFAULT 0,
+    "escalated_count" INTEGER NOT NULL DEFAULT 0,
+    "avg_confidence" DOUBLE PRECISION,
+    "avg_response_time_ms" INTEGER,
+    "by_category" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "daily_metric_snapshots_pkey" PRIMARY KEY ("date")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -279,6 +332,21 @@ CREATE INDEX "prompt_logs_use_case_idx" ON "prompt_logs"("use_case");
 
 -- CreateIndex
 CREATE INDEX "prompt_logs_created_at_idx" ON "prompt_logs"("created_at");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_resource_type_resource_id_idx" ON "audit_logs"("resource_type", "resource_id");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_actor_id_idx" ON "audit_logs"("actor_id");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_created_at_idx" ON "audit_logs"("created_at");
+
+-- CreateIndex
+CREATE INDEX "notification_logs_status_idx" ON "notification_logs"("status");
+
+-- CreateIndex
+CREATE INDEX "notification_logs_created_at_idx" ON "notification_logs"("created_at");
 
 -- AddForeignKey
 ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

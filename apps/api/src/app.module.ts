@@ -16,17 +16,22 @@ import { RagModule } from '@app/modules/rag';
 import { RoutingModule } from '@app/modules/routing';
 import { EscalationModule } from '@app/modules/escalation';
 import { AiModule } from '@app/modules/ai';
+import { AuditModule } from '@app/modules/audit';
+import { NotificationModule } from '@app/modules/notification';
+import { DashboardModule } from '@app/modules/dashboard';
+import { MonitoringModule } from '@app/modules/monitoring';
 import { AppController } from './app.controller';
+import { StorageModule } from '@app/infrastructure';
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
     QueueModule,
-    EventEmitterModule.forRoot(),
-    // Ngày 4 — cần cho GmailPollingService (@Cron) chạy định kỳ kiểm tra
-    // hộp thư IMAP mỗi 2 phút thay cho webhook push (Mailgun không dùng
-    // theo yêu cầu thực tế — dùng thẳng Gmail cá nhân).
+    StorageModule, // MỚI
+    // `wildcard: true` bắt buộc cho AuditListenerService (`@OnEvent('**')`,
+    // TDD Mục 5.11, Ngày 5).
+    EventEmitterModule.forRoot({ wildcard: true, delimiter: '.' }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     LoggerModule.forRoot({
@@ -48,6 +53,11 @@ import { AppController } from './app.controller';
     RoutingModule,
     EscalationModule,
     AiModule,
+    // Ngày 5 (Phase 8+9, TDD Mục 14):
+    AuditModule,
+    NotificationModule,
+    DashboardModule,
+    MonitoringModule,
   ],
   controllers: [AppController],
   providers: [

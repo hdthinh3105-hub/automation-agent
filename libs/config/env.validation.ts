@@ -62,8 +62,15 @@ export const envSchema = z.object({
   GMAIL_APP_PASSWORD: z.string().optional(),
   EMAIL_POLLING_ENABLED: z.coerce.boolean().default(false),
 
+    // ---- Notification Module (Ngày 5) ----
+  ADMIN_NOTIFICATION_EMAIL: z.string().optional(),
+
   STORAGE_DRIVER: z.string().optional(),
   STORAGE_LOCAL_PATH: z.string().optional(),
+
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

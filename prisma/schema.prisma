@@ -320,3 +320,66 @@ model PromptLog {
   @@index([createdAt])
   @@map("prompt_logs")
 }
+
+enum ActorType {
+  USER
+  AI
+  SYSTEM
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  actorType    ActorType @map("actor_type")
+  actorId      String?   @map("actor_id")
+  action       String
+  resourceType String    @map("resource_type")
+  resourceId   String    @map("resource_id")
+  changesJson  Json?     @map("changes_json")
+  ipAddress    String?   @map("ip_address")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([resourceType, resourceId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum NotificationChannel {
+  EMAIL
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model NotificationLog {
+  id          String              @id @default(uuid())
+  type        String
+  recipient   String
+  channel     NotificationChannel
+  status      NotificationStatus  @default(QUEUED)
+  payload     Json?
+  errorReason String?             @map("error_reason")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  sentAt      DateTime?           @map("sent_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("notification_logs")
+}
+
+model DailyMetricSnapshot {
+  date              DateTime @id
+  totalTickets      Int      @default(0) @map("total_tickets")
+  autoResolvedCount Int      @default(0) @map("auto_resolved_count")
+  escalatedCount    Int      @default(0) @map("escalated_count")
+  avgConfidence     Float?   @map("avg_confidence")
+  avgResponseTimeMs Int?     @map("avg_response_time_ms")
+  byCategory        Json?    @map("by_category")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("daily_metric_snapshots")
+}
