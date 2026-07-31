@@ -73,34 +73,62 @@ Backend API cho hệ thống Automation/Agent tiếp nhận yêu cầu từ **nh
 
 ```mermaid
 erDiagram
-    USER ||--o{ REFRESH_TOKEN : "sở hữu"
-    USER ||--o{ TICKET : "được gán (agent)"
-    USER ||--o{ ESCALATION : "được gán (agent)"
+    USER ||--o{ REFRESH_TOKEN : so_huu
+    USER ||--o{ TICKET : duoc_gan_agent
+    USER ||--o{ ESCALATION : duoc_gan_agent
 
-    CUSTOMER ||--o{ TICKET : "gửi yêu cầu"
+    CUSTOMER ||--o{ TICKET : gui_yeu_cau
 
-    TICKET ||--o{ TICKET_MESSAGE : "gồm"
-    TICKET ||--o{ TICKET_STATUS_HISTORY : "lịch sử chuyển trạng thái"
-    TICKET ||--|| CONVERSATION : "1-1 ngữ cảnh hội thoại"
-    TICKET ||--o{ ESCALATION : "có thể escalate"
-    TICKET }o--o{ TICKET : "self-ref: is_duplicate_of"
+    TICKET ||--o{ TICKET_MESSAGE : gom
+    TICKET ||--o{ TICKET_STATUS_HISTORY : lich_su_chuyen_trang_thai
+    TICKET ||--|| CONVERSATION : ngu_canh_hoi_thoai
+    TICKET ||--o{ ESCALATION : co_the_escalate
+    TICKET ||--o{ TICKET : trung_lap_voi
 
-    CONVERSATION ||--o{ CONVERSATION_TURN : "gồm"
+    CONVERSATION ||--o{ CONVERSATION_TURN : gom
 
-    KNOWLEDGE_DOCUMENT ||--o{ KNOWLEDGE_CHUNK : "được chunk"
-    KNOWLEDGE_CHUNK ||--|| CHUNK_EMBEDDING : "1-1 vector (pgvector)"
+    KNOWLEDGE_DOCUMENT ||--o{ KNOWLEDGE_CHUNK : duoc_chunk
+    KNOWLEDGE_CHUNK ||--|| CHUNK_EMBEDDING : co_vector
 
+    USER {
+        string id PK
+        string email
+        string role
+        boolean isActive
+    }
+    CUSTOMER {
+        string id PK
+        string email
+        string name
+    }
     TICKET {
         string id PK
         string customerId FK
-        enum channel "WEB|EMAIL|CHAT_APP|INTERNAL"
-        enum status "NEW..CLOSED (8 trạng thái)"
+        string channel
+        string status
         string category
-        enum priority "LOW|MEDIUM|HIGH|URGENT"
+        string priority
         float confidenceScore
         boolean isSpam
         string isDuplicateOf FK
-        string[] missingInfoFlags
+    }
+    TICKET_MESSAGE {
+        string id PK
+        string ticketId FK
+        string sender
+        string content
+    }
+    CONVERSATION {
+        string id PK
+        string ticketId FK
+        string summary
+        int turnCount
+    }
+    KNOWLEDGE_DOCUMENT {
+        string id PK
+        string title
+        string status
+        int version
     }
     KNOWLEDGE_CHUNK {
         string id PK
@@ -111,15 +139,15 @@ erDiagram
     }
     CHUNK_EMBEDDING {
         string chunkId PK
-        vector vector "pgvector, 384 hoặc 768 chiều"
         string embeddingModel
+        int dimensions
     }
     ESCALATION {
         string id PK
         string ticketId FK
-        enum reason "LOW_CONFIDENCE|EXPLICIT_REQUEST|POLICY_RULE|COMPLEX_CASE"
+        string reason
         datetime slaDeadline
-        enum status "PENDING|ACKNOWLEDGED|RESOLVED"
+        string status
     }
 ```
 
