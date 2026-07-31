@@ -289,6 +289,7 @@ Unit test tập trung vào phần khó nhất: `TicketStateMachine`/`Ticket` ent
 
 Trung thực về phạm vi — hệ thống được thiết kế theo nguyên tắc *"Architecture-complete, Scope-lean"* cho khung thời gian giới hạn, không phải mọi nhánh đều đã implement đầy đủ ở mức Should/Could-have:
 
+- **Gửi Mail** khi muốn gửi mail thì phải gửi cho tài khoản mail hdthinh8@gmail.com, khi muốn nhận mail phản hổi lại thì buộc phải chạy npm run start:worker:dev ở local. Vì khi deploy lên Render Free tier thì Render chặn Port của SMTP nên không thể nào gửi được. Nên khi muốn nhận mail phản hổi thì buộc phải chạy Worker ở local
 - **Duplicate Detection** dùng Jaccard similarity trên tập từ (đơn giản hoá), chưa dùng vector similarity qua RAG Module như thiết kế đầy đủ.
 - **SLA Watcher** chưa có cờ "đã thông báo" — nếu Escalation vẫn `PENDING` qua nhiều chu kỳ quét (5 phút), thông báo có thể lặp lại tới khi Agent Acknowledge.
 - **Kênh Email/Mailgun** mỗi email tạo 1 ticket mới, chưa gộp email cùng chuỗi (`In-Reply-To`) vào 1 ticket cũ.
