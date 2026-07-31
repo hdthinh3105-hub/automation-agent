@@ -227,7 +227,7 @@ npm run start:dev               # API tại http://localhost:3000/api
 npm run start:worker:dev        # Worker process (queue: document-parser, embedding, email, notification)
 ```
 
-### Thử nhanh bằng curl
+### Thử nhanh bằng curl hoặc postman ( link postman https://go.postman.co/workspace/8f65c004-6c33-45cb-8e29-6e5558d375be Nếu sài Postman bằng link nhớ phải vào thêm vào Enviroment URL: base_url: http://localhost:3000 , url_main: https://automation-agent-fhbl.onrender.com )
 ```bash
 # Đăng nhập
 curl -X POST http://localhost:3000/api/auth/login \
@@ -302,5 +302,5 @@ Chi tiết đầy đủ và các quyết định đánh đổi khác xem Mục 1
 
 ## Tài liệu liên quan
 
-- [`TDD-Track-D-AI-Customer-Support.md`](./TDD-Track-D-AI-Customer-Support.md) — tài liệu thiết kế kiến trúc đầy đủ (Clean Architecture, RAG Pipeline, AI Workflow, State Machine, Database, REST API, Background Jobs, Observability, Kế hoạch triển khai theo Phase).
+- [`TDD-Track-D-AI-Customer-Support.md`] — https://docs.google.com/document/d/1oIeRXqzTY-ehi3EKFmMDApNStNUflb6mWudEdIbrFOU/edit?usp=sharing (tài liệu thiết kế kiến trúc đầy đủ (Clean Architecture, RAG Pipeline, AI Workflow, State Machine, Database, REST API, Background Jobs, Observability, Kế hoạch triển khai theo Phase).
 - Frontend Dashboard (project riêng `automation-agent-FE`) — Next.js App Router, xem README của project đó để biết cách kết nối.
