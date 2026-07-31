@@ -1,4 +1,4 @@
-# Automation Agent — Hệ thống Tự động hoá Hỗ trợ Khách hàng bằng AI
+# Automation Agent — Hệ thống Tự động hoá Hỗ trợ Khách hàng bằng AI (Link Demo: https://automation-agent-fhbl.onrender.com)
 
 Backend API cho hệ thống Automation/Agent tiếp nhận yêu cầu từ **nhiều kênh** (Web Chat, Telegram, Gmail/Email), tự động phân loại — phát hiện spam/trùng lặp/thiếu thông tin — trả lời bằng **RAG** (Retrieval-Augmented Generation) có trích dẫn nguồn, và **tự chuyển cho nhân viên (escalate)** khi độ tin cậy thấp hoặc vượt ngoài phạm vi tri thức đã nạp.
 
