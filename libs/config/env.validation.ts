@@ -57,9 +57,15 @@ export const envSchema = z.object({
 
   TELEGRAM_BOT_TOKEN: z.string().optional(),
 
-  // ---- Gmail channel (Ngày 4) ----
+  // ---- Gmail channel (Ngày 4 + Đợt 2) ----
   GMAIL_USER: z.string().optional(),
   GMAIL_APP_PASSWORD: z.string().optional(),
+  // Gửi mail qua Gmail REST API (HTTPS, port 443 — không bị Render free
+  // tier chặn như SMTP 465/587). Cần đủ 3 biến này thì adapter mới dùng
+  // REST; nếu chỉ có GMAIL_APP_PASSWORD thì fallback về SMTP cũ.
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  GMAIL_REFRESH_TOKEN: z.string().optional(),
   EMAIL_POLLING_ENABLED: z.coerce.boolean().default(false),
 
     // ---- Notification Module (Ngày 5) ----

@@ -31,7 +31,12 @@ export class GmailChannelAdapter implements IChannelAdapter {
   private readonly logger = new Logger(GmailChannelAdapter.name);
   private readonly gmailUser: string | undefined;
   private readonly gmailAppPassword: string | undefined;
+  private readonly gmailClientId: string | undefined;
+  private readonly gmailClientSecret: string | undefined;
+  private readonly gmailRefreshToken: string | undefined;
   private transporter: nodemailer.Transporter | null = null;
+  private accessToken: string | null = null;
+  private tokenExpiresAt = 0;
 
   constructor(
     private readonly configService: ConfigService,
@@ -39,6 +44,14 @@ export class GmailChannelAdapter implements IChannelAdapter {
   ) {
     this.gmailUser = this.configService.get<string>('email.gmailUser');
     this.gmailAppPassword = this.configService.get<string>('email.gmailAppPassword');
+    this.gmailClientId = this.configService.get<string>('email.gmailClientId');
+    this.gmailClientSecret = this.configService.get<string>('email.gmailClientSecret');
+    this.gmailRefreshToken = this.configService.get<string>('email.gmailRefreshToken');
+  }
+
+  /** Đã đủ bộ OAuth → ưu tiên gửi qua Gmail REST API (HTTPS 443, không bị Render free chặn). */
+  private get useGmailApi(): boolean {
+    return Boolean(this.gmailClientId && this.gmailClientSecret && this.gmailRefreshToken);
   }
 
   parseIncoming(rawPayload: ParsedMail): CreateTicketCommand {
@@ -85,8 +98,8 @@ export class GmailChannelAdapter implements IChannelAdapter {
    * gửi SMTP trực tiếp ở đây nữa (xem ghi chú ROOT FIX ở đầu file).
    */
   async sendMail(to: string, subject: string, text: string): Promise<void> {
-    if (!this.gmailUser || !this.gmailAppPassword) {
-      this.logger.warn('GMAIL_USER/GMAIL_APP_PASSWORD chưa cấu hình — bỏ qua gửi email phản hồi.');
+    if (!this.gmailUser || (!this.gmailAppPassword && !this.useGmailApi)) {
+      this.logger.warn('GMAIL_USER + (GMAIL_APP_PASSWORD hoặc GMAIL_REFRESH_TOKEN) chưa cấu hình — bỏ qua gửi email phản hồi.');
       return;
     }
     try {
@@ -106,26 +119,101 @@ export class GmailChannelAdapter implements IChannelAdapter {
   }
 
   /**
-   * Gửi SMTP THẬT — chỉ được gọi từ `EmailProcessor` (apps/worker), một
-   * process riêng biệt không tranh CPU với pipeline AI. KHÔNG catch lỗi
-   * ở đây: để lỗi throw ra ngoài cho BullMQ tự retry theo
-   * `defaultJobOptions` đã khai báo ở `QueueModule` (3 lần, backoff
-   * 10s/40s/160s).
+   * Gửi mail THẬT — chỉ được gọi từ `EmailProcessor` (apps/worker), một
+   * process riêng biệt. KHÔNG catch lỗi ở đây: để lỗi throw ra ngoài cho
+   * BullMQ tự retry theo `defaultJobOptions` (3 lần, backoff 10s/40s/160s).
+   *
+   * Mặc định gửi qua Gmail REST API (OAuth2, HTTPS port 443) — không bị
+   * Render free tier chặn như SMTP 465/587 (chính sách từ 26/09/2025).
+   * Nếu không cấu hình OAuth thì fallback về SMTP cũ (vẫn chạy local).
    */
   async sendMailDirect(to: string, subject: string, text: string): Promise<void> {
-    if (!this.gmailUser || !this.gmailAppPassword) {
-      this.logger.warn('GMAIL_USER/GMAIL_APP_PASSWORD chưa cấu hình — bỏ qua gửi email phản hồi.');
+    if (!this.gmailUser || (!this.gmailAppPassword && !this.useGmailApi)) {
+      this.logger.warn('GMAIL_USER + (GMAIL_APP_PASSWORD hoặc GMAIL_REFRESH_TOKEN) chưa cấu hình — bỏ qua gửi email phản hồi.');
       return;
     }
     this.logger.log(`>>> Bắt đầu gửi email tới ${to} (subject="${subject}")`);
-    const transporter = this.getTransporter();
-    await transporter.sendMail({
-      from: `"Hỗ trợ khách hàng" <${this.gmailUser}>`,
-      to,
-      subject,
-      text,
-    });
+    if (this.useGmailApi) {
+      await this.sendViaGmailApi(to, subject, text);
+    } else {
+      const transporter = this.getTransporter();
+      await transporter.sendMail({
+        from: `"Hỗ trợ khách hàng" <${this.gmailUser}>`,
+        to,
+        subject,
+        text,
+      });
+    }
     this.logger.log(`Đã gửi email trả lời tới ${to}`);
+  }
+
+  /** Lấy access token (cache ~1h), tự refresh nếu hết hạn hoặc chưa có. */
+  private async getAccessToken(): Promise<string> {
+    const now = Date.now();
+    if (this.accessToken && now < this.tokenExpiresAt) {
+      return this.accessToken;
+    }
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: this.gmailClientId!,
+        client_secret: this.gmailClientSecret!,
+        refresh_token: this.gmailRefreshToken!,
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Không refresh được Gmail OAuth token (HTTP ${response.status}): ${body}`);
+    }
+    const data = (await response.json()) as { access_token: string; expires_in?: number };
+    this.accessToken = data.access_token;
+    this.tokenExpiresAt = now + ((data.expires_in ?? 3600) - 60) * 1000;
+    return this.accessToken;
+  }
+
+  /** Gửi qua Gmail REST API: POST /gmail/v1/users/me/messages/send. */
+  private async sendViaGmailApi(to: string, subject: string, text: string): Promise<void> {
+    const token = await this.getAccessToken();
+    const raw = this.buildRawMessage(to, subject, text);
+    const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ raw: Buffer.from(raw, 'utf-8').toString('base64url') }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gmail API send thất bại (HTTP ${response.status}): ${body}`);
+    }
+    const result = (await response.json()) as { id?: string };
+    this.logger.log(`Gmail API đã chấp nhận email, messageId=${result.id}`);
+  }
+
+  /** Dựng email dạng RFC 2822 (MIME) để gửi qua Gmail API. */
+  private buildRawMessage(to: string, subject: string, text: string): string {
+    const lines = [
+      `From: "Hỗ trợ khách hàng" <${this.gmailUser}>`,
+      `To: ${to}`,
+      `Subject: ${this.encodeHeader(subject)}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      `Message-ID: <${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@${this.gmailUser!.split('@')[1]}>`,
+      '',
+      Buffer.from(text, 'utf-8').toString('base64'),
+    ];
+    return lines.join('\r\n');
+  }
+
+  /** Mã hóa header chứa ký tự không-ASCII (VD tiếng Việt) theo RFC 2047. */
+  private encodeHeader(value: string): string {
+    return /[\u0080-\uFFFF]/.test(value)
+      ? `=?UTF-8?B?${Buffer.from(value, 'utf-8').toString('base64')}?=`
+      : value;
   }
 
   private getTransporter(): nodemailer.Transporter {

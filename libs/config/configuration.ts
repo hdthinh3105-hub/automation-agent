@@ -82,6 +82,9 @@ export const telegramConfig = registerAs('telegram', () => ({
 export const emailConfig = registerAs('email', () => ({
   gmailUser: process.env.GMAIL_USER || undefined,
   gmailAppPassword: process.env.GMAIL_APP_PASSWORD || undefined,
+  gmailClientId: process.env.GMAIL_CLIENT_ID || undefined,
+  gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || undefined,
+  gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN || undefined,
   pollingEnabled: (process.env.EMAIL_POLLING_ENABLED ?? 'false').toLowerCase() === 'true',
 }));
 
