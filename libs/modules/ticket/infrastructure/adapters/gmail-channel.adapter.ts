@@ -196,7 +196,7 @@ export class GmailChannelAdapter implements IChannelAdapter {
   /** Dựng email dạng RFC 2822 (MIME) để gửi qua Gmail API. */
   private buildRawMessage(to: string, subject: string, text: string): string {
     const lines = [
-      `From: "Hỗ trợ khách hàng" <${this.gmailUser}>`,
+      `From: "${this.encodeHeader('Hỗ trợ khách hàng')}" <${this.gmailUser}>`,
       `To: ${to}`,
       `Subject: ${this.encodeHeader(subject)}`,
       `MIME-Version: 1.0`,
