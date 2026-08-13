@@ -18,6 +18,7 @@ Backend API cho hệ thống Automation/Agent tiếp nhận yêu cầu từ **nh
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Cài đặt & Chạy thử](#cài-đặt--chạy-thử)
 - [Biến môi trường](#biến-môi-trường)
+- [Gửi email qua Gmail REST API (thay SMTP)](#gửi-email-qua-gmail-rest-api-thay-smtp)
 - [Testing](#testing)
 - [Monitoring](#monitoring)
 - [Giới hạn đã biết](#giới-hạn-đã-biết)
@@ -286,11 +287,36 @@ Mọi response bọc trong envelope chuẩn `{ success, data, error, meta }`. M�
 | LLM | `GROQ_API_KEY`, `GEMINI_API_KEY`, `GROQ_MODEL`, `GEMINI_MODEL` | Optional lúc boot, throw rõ khi thực sự gọi mà thiếu key |
 | Embedding | `EMBEDDING_PROVIDER` (`local`/`gemini`), `EMBEDDING_DIMENSIONS` | |
 | RAG | `CHUNK_SIZE_TOKENS`, `RAG_TOP_K_RETRIEVAL`, `RAG_TOP_K_FINAL`, `AI_CONFIDENCE_ESCALATION_THRESHOLD`, `SPAM_SCORE_THRESHOLD` | Config-driven, không hard-code |
-| Kênh | `TELEGRAM_BOT_TOKEN`, `GMAIL_USER`/`GMAIL_APP_PASSWORD`, `EMAIL_POLLING_ENABLED` | |
+| Kênh | `TELEGRAM_BOT_TOKEN`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `EMAIL_POLLING_ENABLED` | `GMAIL_APP_PASSWORD` dùng cho IMAP polling; bộ 3 `GMAIL_CLIENT_*` dùng để gửi qua REST API |
 | Storage | `STORAGE_DRIVER` (`local`/`cloudinary`), `CLOUDINARY_*` | |
 | Notification | `ADMIN_NOTIFICATION_EMAIL`, `SMTP_*` | Kênh thông báo nội bộ, tách khỏi kênh trả lời khách |
 
 Xem đầy đủ + validate bằng Zod tại `libs/config/env.validation.ts` (fail-fast khi thiếu biến bắt buộc).
+
+---
+
+## Gửi email qua Gmail REST API (thay SMTP)
+
+Từ ngày **26/09/2025**, Render **chặn outbound tới các port SMTP** (`25`, `465`, `587`) trên free tier (https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports) — khiến mọi lần gửi Gmail SMTP đều `Connection timeout` giữa chừng. Để gửi mail trên Render free tier, hệ thống đã chuyển `GmailChannelAdapter.sendMailDirect()` sang **Gmail REST API** (HTTPS port 443, không bị chặn).
+
+**Cách hoạt động:** vẫn giữ luồng cũ — API enqueue job → Worker `EmailProcessor` gửi thật. Chỉ khác cơ chế gửi:
+
+| Bộ cấu hình | Cơ chế dùng |
+|---|---|
+| Đủ `GMAIL_CLIENT_ID` + `GMAIL_CLIENT_SECRET` + `GMAIL_REFRESH_TOKEN` | **Gmail REST API** (`POST gmail.googleapis.com/gmail/v1/users/me/messages/send`, OAuth2 refresh token, tự cache access token) |
+| Chỉ có `GMAIL_USER` + `GMAIL_APP_PASSWORD` | Fallback SMTP cũ (thường chỉ chạy được local) |
+
+**Cấu hình 1 lần (lấy token):**
+
+1. **Google Cloud Console** (https://console.cloud.google.com) → tạo project → **APIs & Services → Library** → bật **Gmail API**.
+2. **OAuth consent screen** → External → thêm scope `https://www.googleapis.com/auth/gmail.send` → thêm email tài khoản Gmail của bạn vào **Test users**.
+3. **Credentials** → Create Credentials → **OAuth client ID**:
+   - Loại **Web application**: thêm redirect URI `https://developers.google.com/oauthplayground` để dùng OAuth Playground; hoặc
+   - Loại **Desktop app**: không cần redirect URI, dùng [get-gmail-token.js](https://developers.google.com/oauthplayground) dạng loopback cho chắc chắn.
+4. Lấy **refresh token** (OAuth Playground hoặc script loopback `localhost`) → điền vào 3 biến `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN` (của **cùng 1 client** đã sinh token, đúng account `GMAIL_USER`).
+5. Thêm 3 biến này vào môi trường Render của **cả 2 service** (API + Worker) → Redeploy.
+
+Kiểm tra: Worker logs sẽ có `Gmail API đã chấp nhận email, messageId=...` thay cho `Connection timeout`. Lỗi thường gặp: `invalid_grant` (token lệch scope/account), `403` (thiếu scope).
 
 ---
 
@@ -320,7 +346,7 @@ Unit test tập trung vào phần khó nhất: `TicketStateMachine`/`Ticket` ent
 
 Trung thực về phạm vi — hệ thống được thiết kế theo nguyên tắc *"Architecture-complete, Scope-lean"* cho khung thời gian giới hạn, không phải mọi nhánh đều đã implement đầy đủ ở mức Should/Could-have:
 
-- **Gửi Mail** khi muốn gửi mail thì phải gửi cho tài khoản mail hdthinh8@gmail.com, khi muốn nhận mail phản hổi lại thì buộc phải chạy npm run start:worker:dev ở local. Vì khi deploy lên Render Free tier thì Render chặn Port của SMTP nên không thể nào gửi được. Nên khi muốn nhận mail phản hổi thì buộc phải chạy Worker ở local
+- **Gửi Mail** dùng Gmail REST API (OAuth2) để không bị Render free tier chặn SMTP — chỉ cần cấu hình đủ bộ `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN` cho đúng account `GMAIL_USER`. Nếu chưa cấu hình OAuth, mailer fallback về SMTP (chỉ chạy được local, Render sẽ `Connection timeout`).
 - **Duplicate Detection** dùng Jaccard similarity trên tập từ (đơn giản hoá), chưa dùng vector similarity qua RAG Module như thiết kế đầy đủ.
 - **SLA Watcher** chưa có cờ "đã thông báo" — nếu Escalation vẫn `PENDING` qua nhiều chu kỳ quét (5 phút), thông báo có thể lặp lại tới khi Agent Acknowledge.
 - **Kênh Email/Mailgun** mỗi email tạo 1 ticket mới, chưa gộp email cùng chuỗi (`In-Reply-To`) vào 1 ticket cũ.
