@@ -29,7 +29,7 @@ export class CloudinaryFileStorage implements IFileStorage {
     });
   }
 
-  async upload(buffer: Buffer, filename: string, mimetype: string): Promise<UploadedFile> {
+  async upload(buffer: Buffer, filename: string, _mimetype: string): Promise<UploadedFile> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {

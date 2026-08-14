@@ -2,10 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MetricsService } from './metrics.service';
 
-interface TicketCreatedPayload {
-  channel: string;
-}
-
 interface TicketStatusChangedPayload {
   toStatus: string;
 }

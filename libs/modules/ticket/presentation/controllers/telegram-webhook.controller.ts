@@ -32,7 +32,7 @@ export class TelegramWebhookController {
         const replyText = await this.buildReplyText(ticket.id, ticket.status);
         await this.telegramChannelAdapter.sendMessage(chatId, replyText);
       }
-    } catch (error) {
+    } catch {
       // Update không chứa tin nhắn văn bản (sticker, join event...) hoặc
       // lỗi khác — bỏ qua, vẫn trả 200 để Telegram không retry vô hạn.
       if (chatId) {

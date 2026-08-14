@@ -38,14 +38,14 @@ export class DocumentTextExtractorService {
   }
 
   private async extractPdf(buffer: Buffer): Promise<string> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse');
     const result = await pdfParse(buffer);
     return result.text as string;
   }
 
   private async extractDocx(buffer: Buffer): Promise<string> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mammoth = require('mammoth');
     const result = await mammoth.extractRawText({ buffer });
     return result.value as string;
