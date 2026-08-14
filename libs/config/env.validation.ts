@@ -35,7 +35,7 @@ export const envSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-flash-latest'),
   EMBEDDING_PROVIDER: z.enum(['local', 'gemini']).default('local'),
   EMBEDDING_MODEL: z.string().default('Xenova/bge-small-en-v1.5'),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(384),

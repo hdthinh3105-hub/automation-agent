@@ -25,7 +25,7 @@ export class GeminiLlmProvider implements ILlmProvider {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('llm.geminiApiKey');
-    this.model = this.configService.get<string>('llm.geminiModel', 'gemini-1.5-flash');
+    this.model = this.configService.get<string>('llm.geminiModel', 'gemini-flash-latest');
     this.client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
   }
 

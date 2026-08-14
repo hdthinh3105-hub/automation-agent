@@ -168,7 +168,7 @@ erDiagram
 | ORM | Prisma | Type-safe, migration, raw SQL cho phần vector/full-text search |
 | Queue | BullMQ + Redis (ioredis) | Background job: parse tài liệu, embedding, gửi email, notification |
 | LLM | Groq (Llama 3.3, primary) + Google Gemini (fallback) | `LlmOrchestratorProvider` tự chuyển provider khi rate-limit/lỗi |
-| Embedding | `bge-small-en-v1.5` chạy local qua `@xenova/transformers` (mặc định) hoặc Gemini `text-embedding-004` | Không phụ thuộc rate-limit ngoài, tiết kiệm quota cho phần generation |
+| Embedding | `bge-small-en-v1.5` chạy local qua `@xenova/transformers` (mặc định) hoặc Gemini `gemini-embedding-001` | Không phụ thuộc rate-limit ngoài, tiết kiệm quota cho phần generation |
 | Auth | JWT (access 15p + refresh token rotation, opaque `id.secret`) | RBAC 3 role: ADMIN / AGENT / VIEWER |
 | File Storage | Cloudinary (`resource_type: raw`) hoặc Local Filesystem | Lưu tài liệu Knowledge Base gốc (PDF/DOCX/TXT/MD) |
 | Kênh tiếp nhận | Web REST, Telegram Bot API, Gmail (IMAP polling + SMTP), Mailgun Inbound Webhook | Channel Adapter Pattern — cùng hội tụ 1 Use Case |

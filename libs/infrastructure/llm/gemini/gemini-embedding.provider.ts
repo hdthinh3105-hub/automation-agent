@@ -6,15 +6,17 @@ import { ErrorCode } from '@app/shared/exceptions/error-codes';
 import { IEmbeddingProvider } from '../ports/embedding-provider.port';
 
 /**
- * Adapter thay thế cho Embedding — Google `text-embedding-004` (768
+ * Adapter thay thế cho Embedding — Google `gemini-embedding-001` (3072
  * chiều), dùng khi cấu hình `EMBEDDING_PROVIDER=gemini` (TDD Mục 3, ưu
- * tiên `local` mặc định để tiết kiệm quota). Cần `GEMINI_API_KEY`.
+ * tiên `local` mặc định để tiết kiệm quota). Cần `GEMINI_API_KEY`. Lưu
+ * ý: `text-embedding-004`/`text-embedding-005` đã bị Google kill (404),
+ * thay bằng `gemini-embedding-001` kèm `EMBEDDING_DIMENSIONS=3072`.
  */
 @Injectable()
 export class GeminiEmbeddingProvider implements IEmbeddingProvider {
   private readonly logger = new Logger(GeminiEmbeddingProvider.name);
-  public readonly modelName = 'text-embedding-004';
-  public readonly dimensions = 768;
+  public readonly modelName = 'gemini-embedding-001';
+  public readonly dimensions = 3072;
   private readonly client: GoogleGenerativeAI | null;
 
   constructor(private readonly configService: ConfigService) {
