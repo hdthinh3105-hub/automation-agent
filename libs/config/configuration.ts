@@ -41,7 +41,7 @@ export const storageConfig = registerAs('storage', () => ({
 
 export const llmConfig = registerAs('llm', () => ({
   groqApiKey: process.env.GROQ_API_KEY || undefined,
-  groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+  groqModel: process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b',
   geminiApiKey: process.env.GEMINI_API_KEY || undefined,
   // "gemini-1.5-flash"/"gemini-2.0-flash" đã bị Google shutdown hẳn
   // (01/06/2026); "gemini-2.5-flash" bị chặn cấp cho project/API key

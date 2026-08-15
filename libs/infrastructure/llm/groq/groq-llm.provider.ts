@@ -26,7 +26,7 @@ export class GroqLlmProvider implements ILlmProvider {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('llm.groqApiKey');
-    this.model = this.configService.get<string>('llm.groqModel', 'llama-3.3-70b-versatile');
+    this.model = this.configService.get<string>('llm.groqModel', 'openai/gpt-oss-120b');
     this.client = apiKey ? new Groq({ apiKey }) : null;
   }
 
