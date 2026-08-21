@@ -13,6 +13,7 @@
     "start:worker:dev": "nest start worker --watch",
     "start:debug": "nest start api --debug --watch",
     "start:prod": "node dist/apps/api/main",
+    "prefetch:model": "node scripts/prefetch-embedding-model.mjs",
     "start:worker:prod": "node dist/apps/worker/worker.main",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "test": "jest",

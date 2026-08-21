@@ -39,13 +39,17 @@ export class LocalEmbeddingProvider implements IEmbeddingProvider {
       this.pipelinePromise = (async () => {
         this.logger.log(`Loading local embedding model "${this.modelName}" (first call — may take a while)...`);
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { pipeline } = await (Function('return import("@xenova/transformers")')() as Promise<
+        const { pipeline, env } = await (Function('return import("@xenova/transformers")')() as Promise<
           typeof import('@xenova/transformers')
         >);
+        env.cacheDir = './.transformers-cache';
         const extractor = await pipeline('feature-extraction', this.modelName);
         this.logger.log(`Local embedding model "${this.modelName}" loaded.`);
         return extractor as unknown as FeatureExtractionPipeline;
-      })();
+      })().catch((error) => {
+        this.pipelinePromise = null;
+        throw error;
+      });
     }
     return this.pipelinePromise;
   }

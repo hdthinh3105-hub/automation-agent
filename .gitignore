@@ -8,6 +8,9 @@ node_modules/
 # Build
 dist/
 
+# Transformers.js model cache
+.transformers-cache/
+
 # Logs
 logs/
 *.log
